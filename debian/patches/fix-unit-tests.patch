@@ -1,0 +1,19 @@
+Description: Fix CppUTest unit tests by disabling the snprintf() override
+Author: J. S. Seldenthuis <jseldenthuis@lely.com>
+
+--- a/unit-tests/override/libc-stdio.hpp
++++ b/unit-tests/override/libc-stdio.hpp
+@@ -29,13 +29,6 @@
+
+ #include <cstdio>
+
+-#if (__GNUC__ != 7) && (__GNUC__ != 8)
+-/* Overriding does not work on GCC 7 and 8 with -fprintf-return-value
+- * optimization enabled (default) when using shared libraries.
+- */
+-#define HAVE_SNPRINTF_OVERRIDE 1
+-#endif
+-
+ /**
+  * Override parameters.
+  */

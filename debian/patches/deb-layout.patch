@@ -1,0 +1,36 @@
+Description: Add --install-layout=deb to setup.py for dh_python2 and dh_python3
+Author: J. S. Seldenthuis <jseldenthuis@lely.com>
+
+--- a/python/can/Makefile.am
++++ b/python/can/Makefile.am
+@@ -69,7 +69,7 @@ if HAVE_PYTHON2
+ endif
+ if HAVE_PYTHON3
+ 	@$(PYTHON3_ENV) $(PYTHON3) $(srcdir)/setup.py \
+-		install --prefix $(DESTDIR)$(prefix) --root /
++		install --prefix $(DESTDIR)$(prefix) --root / --install-layout=deb
+ endif
+
+ .PHONY: python-sdist
+--- a/python/dcf-tools/Makefile.am
++++ b/python/dcf-tools/Makefile.am
+@@ -41,7 +41,7 @@ endif
+ python-install:
+ if HAVE_PYTHON3
+ 	@$(PYTHON3_ENV) $(PYTHON3) $(srcdir)/setup.py \
+-		install --prefix $(DESTDIR)$(prefix) --root /
++		install --prefix $(DESTDIR)$(prefix) --root / --install-layout=deb
+ endif
+
+ .PHONY: python-sdist
+--- a/python/io/Makefile.am
++++ b/python/io/Makefile.am
+@@ -83,7 +83,7 @@ if HAVE_PYTHON2
+ endif
+ if HAVE_PYTHON3
+ 	@$(PYTHON3_ENV) $(PYTHON3) $(srcdir)/setup.py \
+-		install --prefix $(DESTDIR)$(prefix) --root /
++		install --prefix $(DESTDIR)$(prefix) --root / --install-layout=deb
+ endif
+
+ .PHONY: python-sdist
