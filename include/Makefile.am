@@ -233,6 +233,14 @@ if !NO_CXX
 inc += lely/io2/win32/poll.hpp
 endif
 endif
+inc += lely/io2/addr.h
+if !NO_CXX
+inc += lely/io2/addr.hpp
+endif
+inc += lely/io2/bth.h
+if !NO_CXX
+inc += lely/io2/bth.hpp
+endif
 inc += lely/io2/buf.h
 if !NO_CXX
 inc += lely/io2/buf.hpp
@@ -268,6 +276,14 @@ if !NO_CXX
 inc += lely/io2/event.hpp
 endif
 inc += lely/io2/io2.h
+inc += lely/io2/ipv4.h
+if !NO_CXX
+inc += lely/io2/ipv4.hpp
+endif
+inc += lely/io2/ipv6.h
+if !NO_CXX
+inc += lely/io2/ipv6.hpp
+endif
 inc += lely/io2/sigset.h
 if !NO_CXX
 inc += lely/io2/sigset.hpp

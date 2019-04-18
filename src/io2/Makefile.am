@@ -41,6 +41,7 @@ src += win32/poll.c
 src += win32/sigset.c
 src += win32/timer.c
 endif
+src += bth.c
 src += buf.c
 src += can.c
 src += can.h
@@ -50,6 +51,8 @@ src += clock.c
 src += ctx.c
 src += dev.c
 src += io2.h
+src += ipv4.c
+src += ipv6.c
 src += sigset.c
 src += sigset.h
 src += stream.c
