@@ -51,6 +51,7 @@ src += dev.c
 src += io2.h
 src += sigset.c
 src += sigset.h
+src += stream.c
 src += timer.c
 src += timer.h
 src += tqueue.c
