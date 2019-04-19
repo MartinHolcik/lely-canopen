@@ -296,6 +296,10 @@ inc += lely/io2/sigset.h
 if !NO_CXX
 inc += lely/io2/sigset.hpp
 endif
+inc += lely/io2/sock.h
+if !NO_CXX
+inc += lely/io2/sock.hpp
+endif
 inc += lely/io2/stream.h
 if !NO_CXX
 inc += lely/io2/stream.hpp

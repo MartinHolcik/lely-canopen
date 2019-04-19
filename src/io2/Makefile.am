@@ -55,6 +55,7 @@ src += ipv4.c
 src += ipv6.c
 src += sigset.c
 src += sigset.h
+src += sock.c
 src += stream.c
 src += stream.h
 src += tcp.c
