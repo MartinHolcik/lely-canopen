@@ -301,6 +301,14 @@ inc += lely/io2/sock.h
 if !NO_CXX
 inc += lely/io2/sock.hpp
 endif
+inc += lely/io2/sock_stream.h
+if !NO_CXX
+inc += lely/io2/sock_stream.hpp
+endif
+inc += lely/io2/sock_stream_srv.h
+if !NO_CXX
+inc += lely/io2/sock_stream_srv.hpp
+endif
 inc += lely/io2/stream.h
 if !NO_CXX
 inc += lely/io2/stream.hpp

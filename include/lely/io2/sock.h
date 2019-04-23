@@ -37,6 +37,31 @@
 #define LELY_IO_SOCK_INLINE static inline
 #endif
 
+/// The flags for socket send and receive operations.
+enum io_msg_flag {
+	/// Send without using routing tables.
+	IO_MSG_DONTROUTE = 1u << 0,
+	/// Terminates a record (if supported by the protocol).
+	IO_MSG_EOR = 1u << 1,
+	/// Out-of-band data.
+	IO_MSG_OOB = 1u << 2,
+	/// Leave received data in queue.
+	IO_MSG_PEEK = 1u << 3,
+	/// Normal data truncated.
+	IO_MSG_TRUNC = 1u << 4,
+	IO_MSG_NONE = 0
+};
+
+/// The type of socket shutdown.
+enum io_shut_type {
+	/// Disables further receive operations.
+	IO_SHUT_RD = 1u << 0,
+	/// Disables further send operations.
+	IO_SHUT_WR = 1u << 1,
+	/// Disables further send and receive operations.
+	IO_SHUT_RDWR = IO_SHUT_RD | IO_SHUT_WR
+};
+
 /// An abstract socket.
 typedef const struct io_sock_vtbl *const io_sock_t;
 

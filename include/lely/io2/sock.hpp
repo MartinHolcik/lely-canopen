@@ -35,6 +35,68 @@
 namespace lely {
 namespace io {
 
+/// The flags for socket send and receive operations.
+enum class MessageFlag : int {
+  /// Send without using routing tables.
+  DONTROUTE = IO_MSG_DONTROUTE,
+  /// Terminates a record (if supported by the protocol).
+  EOR = IO_MSG_EOR,
+  /// Out-of-band data.
+  OOB = IO_MSG_OOB,
+  /// Leave received data in queue.
+  PEEK = IO_MSG_PEEK,
+  /// Normal data truncated.
+  TRUNC = IO_MSG_TRUNC,
+  NONE = IO_MSG_NONE
+};
+
+constexpr MessageFlag
+operator~(MessageFlag rhs) {
+  return static_cast<MessageFlag>(~static_cast<int>(rhs));
+}
+
+constexpr MessageFlag operator&(MessageFlag lhs, MessageFlag rhs) {
+  return static_cast<MessageFlag>(static_cast<int>(lhs) &
+                                  static_cast<int>(rhs));
+}
+
+constexpr MessageFlag
+operator^(MessageFlag lhs, MessageFlag rhs) {
+  return static_cast<MessageFlag>(static_cast<int>(lhs) ^
+                                  static_cast<int>(rhs));
+}
+
+constexpr MessageFlag
+operator|(MessageFlag lhs, MessageFlag rhs) {
+  return static_cast<MessageFlag>(static_cast<int>(lhs) |
+                                  static_cast<int>(rhs));
+}
+
+inline MessageFlag&
+operator&=(MessageFlag& lhs, MessageFlag rhs) {
+  return lhs = lhs & rhs;
+}
+
+inline MessageFlag&
+operator^=(MessageFlag& lhs, MessageFlag rhs) {
+  return lhs = lhs ^ rhs;
+}
+
+inline MessageFlag&
+operator|=(MessageFlag& lhs, MessageFlag rhs) {
+  return lhs = lhs | rhs;
+}
+
+/// The type of socket shutdown.
+enum class ShutdownType : int {
+  /// Disables further receive operations.
+  RD = IO_SHUT_RD,
+  /// Disables further send operations.
+  WR = IO_SHUT_WR,
+  /// Disables further send and receive operations.
+  RDWR = IO_SHUT_RDWR
+};
+
 namespace detail {
 
 template <class F>
