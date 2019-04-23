@@ -40,6 +40,7 @@ src += win32/poll.c
 src += win32/sigset.c
 src += win32/timer.c
 endif
+src += buf.c
 src += can.c
 src += can.h
 src += can_rt.c
