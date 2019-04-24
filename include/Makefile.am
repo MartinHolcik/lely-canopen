@@ -35,6 +35,9 @@ inc += lely/util/bitset.h
 if !NO_CXX
 inc += lely/util/c_call.hpp
 inc += lely/util/c_type.hpp
+endif
+inc += lely/util/cbuf.h
+if !NO_CXX
 inc += lely/util/chrono.hpp
 endif
 inc += lely/util/config.h
