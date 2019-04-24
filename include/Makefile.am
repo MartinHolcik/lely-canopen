@@ -269,6 +269,7 @@ inc += lely/io2/co_can.hpp
 inc += lely/io2/co_can_rt.hpp
 inc += lely/io2/co_sigset.hpp
 inc += lely/io2/co_sock.hpp
+inc += lely/io2/co_sock_dgram.hpp
 inc += lely/io2/co_sock_stream.hpp
 inc += lely/io2/co_sock_stream_srv.hpp
 inc += lely/io2/co_stream.hpp
