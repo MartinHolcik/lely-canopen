@@ -28,6 +28,7 @@ endif
 endif
 src += sys/clock.c
 src += user/can.c
+src += user/stream.c
 src += user/timer.c
 if PLATFORM_WIN32
 src += win32/io.c
@@ -52,6 +53,7 @@ src += io2.h
 src += sigset.c
 src += sigset.h
 src += stream.c
+src += stream.h
 src += timer.c
 src += timer.h
 src += tqueue.c

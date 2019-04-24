@@ -213,6 +213,10 @@ inc += lely/io2/user/can.h
 if !NO_CXX
 inc += lely/io2/user/can.hpp
 endif
+inc += lely/io2/user/stream.h
+if !NO_CXX
+inc += lely/io2/user/stream.hpp
+endif
 inc += lely/io2/user/timer.h
 if !NO_CXX
 inc += lely/io2/user/timer.hpp
