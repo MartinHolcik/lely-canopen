@@ -72,6 +72,7 @@ src += sigset.c
 src += sigset.h
 src += sock.c
 src += sock.h
+src += sock_dgram.c
 src += sock_stream.c
 src += sock_stream.h
 src += sock_stream_srv.c
