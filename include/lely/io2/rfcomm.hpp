@@ -1,6 +1,6 @@
 /**@file
  * This header file is part of the I/O library; it contains the C++ interface
- * for the Bluetooth RFCOMM declarations.
+ * for the abstract Bluetooth RFCOMM socket.
  *
  * @see lely/io2/rfcomm.h
  *
@@ -27,6 +27,8 @@
 #include <lely/io2/bth.hpp>
 #include <lely/io2/endp.hpp>
 #include <lely/io2/rfcomm.h>
+#include <lely/io2/sock_stream.hpp>
+#include <lely/io2/sock_stream_srv.hpp>
 
 #include <string>
 
@@ -114,6 +116,92 @@ class BluetoothRfcommEndpoint : public io_endp_bth_rfcomm {
   address() const noexcept {
     return *static_cast<const BluetoothAddress*>(&bth);
   }
+};
+
+/**
+ * A reference to a Bluetooth RFCOMM server. This class is a wrapper around
+ * `#io_rfcomm_srv_t*`.
+ */
+class RfcommServerBase : public StreamSocketServerBase {
+ public:
+  using Device::operator io_dev_t*;
+  using SocketBase::operator io_sock_t*;
+  using StreamSocketServerBase::operator io_sock_stream_srv_t*;
+
+  explicit RfcommServerBase(io_rfcomm_srv_t* rfcomm_srv_) noexcept
+      : Device(rfcomm_srv_ ? io_rfcomm_srv_get_dev(rfcomm_srv_) : nullptr),
+        StreamSocketServerBase(
+            rfcomm_srv_ ? io_rfcomm_srv_get_sock_stream_srv(rfcomm_srv_)
+                        : nullptr),
+        rfcomm_srv(rfcomm_srv_) {}
+
+  operator io_rfcomm_srv_t*() const noexcept { return rfcomm_srv; }
+
+  /// @see io_rfcomm_srv_open()
+  void
+  open(::std::error_code& ec) noexcept {
+    int errsv = get_errc();
+    set_errc(0);
+    if (!io_rfcomm_srv_open(*this))
+      ec.clear();
+    else
+      ec = util::make_error_code();
+    set_errc(errsv);
+  }
+
+  /// @see io_rfcomm_srv_open()
+  void
+  open() {
+    ::std::error_code ec;
+    open(ec);
+    if (ec) throw ::std::system_error(ec, "open");
+  }
+
+ protected:
+  io_rfcomm_srv_t* rfcomm_srv{nullptr};
+};
+
+/**
+ * A reference to a Bluetooth RFCOMM socket. This class is a wrapper around
+ * `#io_rfcomm_t*`.
+ */
+class RfcommBase : public StreamSocketBase {
+ public:
+  using Device::operator io_dev_t*;
+  using SocketBase::operator io_sock_t*;
+  using StreamBase::operator io_stream_t*;
+  using StreamSocketBase::operator io_sock_stream_t*;
+
+  explicit RfcommBase(io_rfcomm_t* rfcomm_) noexcept
+      : Device(rfcomm_ ? io_rfcomm_get_dev(rfcomm_) : nullptr),
+        StreamSocketBase(rfcomm_ ? io_rfcomm_get_sock_stream(rfcomm_)
+                                 : nullptr),
+        rfcomm(rfcomm_) {}
+
+  operator io_rfcomm_t*() const noexcept { return rfcomm; }
+
+  /// @see io_rfcomm_open()
+  void
+  open(::std::error_code& ec) noexcept {
+    int errsv = get_errc();
+    set_errc(0);
+    if (!io_rfcomm_open(*this))
+      ec.clear();
+    else
+      ec = util::make_error_code();
+    set_errc(errsv);
+  }
+
+  /// @see io_rfcomm_open()
+  void
+  open() {
+    ::std::error_code ec;
+    open();
+    if (ec) throw ::std::system_error(ec, "open");
+  }
+
+ protected:
+  io_rfcomm_t* rfcomm{nullptr};
 };
 
 }  // namespace io

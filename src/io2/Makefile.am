@@ -63,6 +63,7 @@ src += dev.c
 src += io2.h
 src += ipv4.c
 src += ipv6.c
+src += rfcomm.c
 src += sigset.c
 src += sigset.h
 src += sock.c
