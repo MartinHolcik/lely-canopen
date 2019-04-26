@@ -1,5 +1,6 @@
 /**@file
- * This file is part of the I/O library; it exposes the UDP functions.
+ * This file is part of the I/O library; it exposes the abstract UDP socket
+ * functions.
  *
  * @see lely/io2/udp.h
  *
@@ -21,6 +22,7 @@
  */
 
 #include "io2.h"
+#define LELY_IO_UDP_INLINE extern inline
 #include <lely/io2/udp.h>
 #include <lely/util/errnum.h>
 

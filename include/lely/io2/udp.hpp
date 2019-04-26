@@ -1,6 +1,6 @@
 /**@file
  * This header file is part of the I/O library; it contains the C++ interface
- * for the UDP declarations.
+ * for the abstract UDP socket.
  *
  * @see lely/io2/udp.h
  *
@@ -27,6 +27,7 @@
 #include <lely/io2/endp.hpp>
 #include <lely/io2/ipv4.hpp>
 #include <lely/io2/ipv6.hpp>
+#include <lely/io2/sock_dgram.hpp>
 #include <lely/io2/udp.h>
 
 #include <string>
@@ -323,6 +324,64 @@ inline Ipv6UdpEndpoint&
 Ipv6UdpEndpoint::operator=(const ::std::string& str) {
   return *this = make_ipv6_udp_endpoint(str);
 }
+
+/// A reference to a UDP socket. This class is a wrapper around `#io_udp_t*`.
+class UdpBase : public DatagramSocketBase {
+ public:
+  using Device::operator io_dev_t*;
+  using SocketBase::operator io_sock_t*;
+  using DatagramSocketBase::operator io_sock_dgram_t*;
+
+  explicit UdpBase(io_udp_t* udp_) noexcept
+      : Device(udp_ ? io_udp_get_dev(udp_) : nullptr),
+        DatagramSocketBase(udp_ ? io_udp_get_sock_dgram(udp_) : nullptr),
+        udp(udp_) {}
+
+  operator io_udp_t*() const noexcept { return udp; }
+
+  /// @see io_udp_open_ipv4()
+  void
+  open_ipv4(::std::error_code& ec) noexcept {
+    int errsv = get_errc();
+    set_errc(0);
+    if (!io_udp_open_ipv4(*this))
+      ec.clear();
+    else
+      ec = util::make_error_code();
+    set_errc(errsv);
+  }
+
+  /// @see io_udp_open_ipv4()
+  void
+  open_ipv4() {
+    ::std::error_code ec;
+    open_ipv4(ec);
+    if (ec) throw ::std::system_error(ec, "open_ipv4");
+  }
+
+  /// @see io_udp_open_ipv6()
+  void
+  open_ipv6(bool v6only, ::std::error_code& ec) noexcept {
+    int errsv = get_errc();
+    set_errc(0);
+    if (!io_udp_open_ipv6(*this, v6only))
+      ec.clear();
+    else
+      ec = util::make_error_code();
+    set_errc(errsv);
+  }
+
+  /// @see io_udp_open_ipv6()
+  void
+  open_ipv6(bool v6only = false) {
+    ::std::error_code ec;
+    open_ipv6(v6only, ec);
+    if (ec) throw ::std::system_error(ec, "open_ipv6");
+  }
+
+ protected:
+  io_udp_t* udp{nullptr};
+};
 
 }  // namespace io
 }  // namespace lely
