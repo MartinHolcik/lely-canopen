@@ -1,6 +1,6 @@
 /**@file
  * This header file is part of the I/O library; it contains the C++ interface
- * for the TCP declarations.
+ * for the abstract TCP socket.
  *
  * @see lely/io2/tcp.h
  *
@@ -27,6 +27,8 @@
 #include <lely/io2/endp.hpp>
 #include <lely/io2/ipv4.hpp>
 #include <lely/io2/ipv6.hpp>
+#include <lely/io2/sock_stream.hpp>
+#include <lely/io2/sock_stream_srv.hpp>
 #include <lely/io2/tcp.h>
 
 #include <string>
@@ -323,6 +325,169 @@ inline Ipv6TcpEndpoint&
 Ipv6TcpEndpoint::operator=(const ::std::string& str) {
   return *this = make_ipv6_tcp_endpoint(str);
 }
+
+/**
+ * A reference to a TCP server. This class is a wrapper around `#io_tcp_srv_t*`.
+ */
+class TcpServerBase : public StreamSocketServerBase {
+ public:
+  using Device::operator io_dev_t*;
+  using SocketBase::operator io_sock_t*;
+  using StreamSocketServerBase::operator io_sock_stream_srv_t*;
+
+  explicit TcpServerBase(io_tcp_srv_t* tcp_srv_) noexcept
+      : Device(tcp_srv_ ? io_tcp_srv_get_dev(tcp_srv_) : nullptr),
+        StreamSocketServerBase(
+            tcp_srv_ ? io_tcp_srv_get_sock_stream_srv(tcp_srv_) : nullptr),
+        tcp_srv(tcp_srv_) {}
+
+  operator io_tcp_srv_t*() const noexcept { return tcp_srv; }
+
+  /// @see io_tcp_srv_open_ipv4()
+  void
+  open_ipv4(::std::error_code& ec) noexcept {
+    int errsv = get_errc();
+    set_errc(0);
+    if (!io_tcp_srv_open_ipv4(*this))
+      ec.clear();
+    else
+      ec = util::make_error_code();
+    set_errc(errsv);
+  }
+
+  /// @see io_tcp_srv_open_ipv4()
+  void
+  open_ipv4() {
+    ::std::error_code ec;
+    open_ipv4(ec);
+    if (ec) throw ::std::system_error(ec, "open_ipv4");
+  }
+
+  /// @see io_tcp_srv_open_ipv6()
+  void
+  open_ipv6(bool v6only, ::std::error_code& ec) noexcept {
+    int errsv = get_errc();
+    set_errc(0);
+    if (!io_tcp_srv_open_ipv6(*this, v6only))
+      ec.clear();
+    else
+      ec = util::make_error_code();
+    set_errc(errsv);
+  }
+
+  /// @see io_tcp_srv_open_ipv6()
+  void
+  open_ipv6(bool v6only = false) {
+    ::std::error_code ec;
+    open_ipv6(v6only, ec);
+    if (ec) throw ::std::system_error(ec, "open_ipv6");
+  }
+
+ protected:
+  io_tcp_srv_t* tcp_srv{nullptr};
+};
+
+/// A reference to a TCP socket. This class is a wrapper around `#io_tcp_t*`.
+class TcpBase : public StreamSocketBase {
+ public:
+  using Device::operator io_dev_t*;
+  using SocketBase::operator io_sock_t*;
+  using StreamBase::operator io_stream_t*;
+  using StreamSocketBase::operator io_sock_stream_t*;
+
+  explicit TcpBase(io_tcp_t* tcp_) noexcept
+      : Device(tcp_ ? io_tcp_get_dev(tcp_) : nullptr),
+        StreamSocketBase(tcp_ ? io_tcp_get_sock_stream(tcp_) : nullptr),
+        tcp(tcp_) {}
+
+  operator io_tcp_t*() const noexcept { return tcp; }
+
+  /// @see io_tcp_open_ipv4()
+  void
+  open_ipv4(::std::error_code& ec) noexcept {
+    int errsv = get_errc();
+    set_errc(0);
+    if (!io_tcp_open_ipv4(*this))
+      ec.clear();
+    else
+      ec = util::make_error_code();
+    set_errc(errsv);
+  }
+
+  /// @see io_tcp_open_ipv4()
+  void
+  open_ipv4() {
+    ::std::error_code ec;
+    open_ipv4(ec);
+    if (ec) throw ::std::system_error(ec, "open_ipv4");
+  }
+
+  /// @see io_tcp_open_ipv6()
+  void
+  open_ipv6(bool v6only, ::std::error_code& ec) noexcept {
+    int errsv = get_errc();
+    set_errc(0);
+    if (!io_tcp_open_ipv6(*this, v6only))
+      ec.clear();
+    else
+      ec = util::make_error_code();
+    set_errc(errsv);
+  }
+
+  /// @see io_tcp_open_ipv6()
+  void
+  open_ipv6(bool v6only = false) {
+    ::std::error_code ec;
+    open_ipv6(v6only, ec);
+    if (ec) throw ::std::system_error(ec, "open_ipv6");
+  }
+
+  /// @see io_tcp_get_nodelay()
+  bool
+  nodelay(::std::error_code& ec) const noexcept {
+    int errsv = get_errc();
+    set_errc(0);
+    int optval = io_tcp_get_nodelay(*this);
+    if (optval >= 0)
+      ec.clear();
+    else
+      ec = util::make_error_code();
+    set_errc(errsv);
+    return optval > 0;
+  }
+
+  /// @see io_tcp_get_nodelay()
+  bool
+  nodelay() const {
+    ::std::error_code ec;
+    auto optval = nodelay(ec);
+    if (ec) throw ::std::system_error(ec, "nodelay");
+    return optval;
+  }
+
+  /// @see io_tcp_set_nodelay()
+  void
+  nodelay(bool optval, ::std::error_code& ec) noexcept {
+    int errsv = get_errc();
+    set_errc(0);
+    if (!io_tcp_set_nodelay(*this, optval))
+      ec.clear();
+    else
+      ec = util::make_error_code();
+    set_errc(errsv);
+  }
+
+  /// @see io_tcp_set_nodelay()
+  void
+  nodelay(bool optval) {
+    ::std::error_code ec;
+    nodelay(optval, ec);
+    if (ec) throw ::std::system_error(ec, "nodelay");
+  }
+
+ protected:
+  io_tcp_t* tcp{nullptr};
+};
 
 }  // namespace io
 }  // namespace lely

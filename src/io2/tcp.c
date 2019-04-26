@@ -1,5 +1,6 @@
 /**@file
- * This file is part of the I/O library; it exposes the TCP functions.
+ * This file is part of the I/O library; it exposes the abstract TCP socket
+ * functions.
  *
  * @see lely/io2/tcp.h
  *
@@ -21,6 +22,7 @@
  */
 
 #include "io2.h"
+#define LELY_IO_TCP_INLINE extern inline
 #include <lely/io2/tcp.h>
 #include <lely/util/errnum.h>
 
