@@ -271,6 +271,10 @@ inc += lely/io2/dev.h
 if !NO_CXX
 inc += lely/io2/dev.hpp
 endif
+inc += lely/io2/endp.h
+if !NO_CXX
+inc += lely/io2/endp.hpp
+endif
 inc += lely/io2/event.h
 if !NO_CXX
 inc += lely/io2/event.hpp
@@ -284,6 +288,10 @@ inc += lely/io2/ipv6.h
 if !NO_CXX
 inc += lely/io2/ipv6.hpp
 endif
+inc += lely/io2/rfcomm.h
+if !NO_CXX
+inc += lely/io2/rfcomm.hpp
+endif
 inc += lely/io2/sigset.h
 if !NO_CXX
 inc += lely/io2/sigset.hpp
@@ -292,6 +300,10 @@ inc += lely/io2/stream.h
 if !NO_CXX
 inc += lely/io2/stream.hpp
 endif
+inc += lely/io2/tcp.h
+if !NO_CXX
+inc += lely/io2/tcp.hpp
+endif
 inc += lely/io2/timer.h
 if !NO_CXX
 inc += lely/io2/timer.hpp
@@ -299,6 +311,10 @@ endif
 inc += lely/io2/tqueue.h
 if !NO_CXX
 inc += lely/io2/tqueue.hpp
+endif
+inc += lely/io2/udp.h
+if !NO_CXX
+inc += lely/io2/udp.hpp
 endif
 inc += lely/io2/vcan.h
 if !NO_CXX

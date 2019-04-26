@@ -57,9 +57,11 @@ src += sigset.c
 src += sigset.h
 src += stream.c
 src += stream.h
+src += tcp.c
 src += timer.c
 src += timer.h
 src += tqueue.c
+src += udp.c
 src += vcan.c
 
 lib_LTLIBRARIES = liblely-io2.la
