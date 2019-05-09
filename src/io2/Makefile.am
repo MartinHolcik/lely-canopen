@@ -32,6 +32,8 @@ endif
 src += sys/clock.c
 src += sys/sock.c
 src += sys/sock.h
+src += sys/sock_dgram.c
+src += sys/sock_dgram.h
 src += sys/sock_stream.c
 src += sys/sock_stream.h
 src += sys/sock_stream_srv.c
@@ -73,6 +75,7 @@ src += sigset.h
 src += sock.c
 src += sock.h
 src += sock_dgram.c
+src += sock_dgram.h
 src += sock_stream.c
 src += sock_stream.h
 src += sock_stream_srv.c
