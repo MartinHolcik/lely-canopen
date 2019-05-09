@@ -217,6 +217,10 @@ inc += lely/io2/sys/timer.h
 if !NO_CXX
 inc += lely/io2/sys/timer.hpp
 endif
+inc += lely/io2/sys/udp.h
+if !NO_CXX
+inc += lely/io2/sys/udp.hpp
+endif
 inc += lely/io2/user/can.h
 if !NO_CXX
 inc += lely/io2/user/can.hpp

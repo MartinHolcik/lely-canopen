@@ -39,6 +39,7 @@ src += sys/sock_stream.h
 src += sys/sock_stream_srv.c
 src += sys/sock_stream_srv.h
 src += sys/tcp.c
+src += sys/udp.c
 src += user/can.c
 src += user/stream.c
 src += user/timer.c

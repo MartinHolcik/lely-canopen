@@ -215,6 +215,9 @@ static inline ev_future_t *io_udp_async_wait(io_udp_t *udp, ev_exec_t *exec,
 /// @see io_sock_get_error()
 static inline int io_udp_get_error(io_udp_t *udp);
 
+/// @see io_sock_get_nread()
+static inline int io_udp_get_nread(const io_udp_t *udp);
+
 /// @see io_sock_get_dontroute()
 static inline int io_udp_get_dontroute(const io_udp_t *udp);
 
@@ -451,6 +454,12 @@ static inline int
 io_udp_get_error(io_udp_t *udp)
 {
 	return io_sock_get_error(io_udp_get_sock(udp));
+}
+
+static inline int
+io_udp_get_nread(const io_udp_t *udp)
+{
+	return io_sock_get_nread(io_udp_get_sock(udp));
 }
 
 static inline int
