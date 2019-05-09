@@ -57,6 +57,32 @@ int io_fd_set_nonblock(int fd);
 int io_fd_wait(int fd, int *events, int timeout);
 
 /**
+ * Equivalent to `socket(domain, type, protocol)`, except that the resulting
+ * socket has the `O_CLOEXEC` and `O_NONBLOCK` flags set.
+ */
+int io_fd_socket(int domain, int type, int protocol);
+
+/**
+ * Equivalent to POSIX `accept(fd, addr, addrlen)`, except that if <b>fd</b> is
+ * non-blocking and <b>timeout</b> is non-negative, this function will block
+ * until a pending connection is accepted or <b>timeout</b> milliseconds have
+ * elapsed. The timeout interval will be rounded up to the system clock
+ * granularity, but this function MAY return early if interrupted by a signal.
+ * If `O_CLOEXEC` or `O_NONBLOCK` are set in <b>flags</b>, these flags will be
+ * set on the file descriptor for the accepted socket.
+ */
+int io_fd_accept(int fd, int flags, struct sockaddr *addr, socklen_t *addrlen,
+		int timeout);
+
+/**
+ * Equivalent to POSIX `connect(fd, addr, addrlen)`, except that if <b>fd</b> is
+ * non-blocking and <b>dontwait</b> is 0, this function behaves as if <b>fd</b>
+ * is blocking.
+ */
+int io_fd_connect(int fd, const struct sockaddr *addr, socklen_t addrlen,
+		int dontwait);
+
+/**
  * Equivalent to POSIX `recvmsg(fd, msg, flags)`, except that if <b>fd</b> is
  * non-blocking (or the implementation supports the `MSG_DONTWAIT` flag) and
  * <b>timeout</b> is non-negative, this function behaves as if <b>fd</b> is
