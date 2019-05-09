@@ -49,6 +49,7 @@ src += win32/ixxat.c
 src += win32/ixxat.inc
 endif
 src += win32/poll.c
+src += win32/rfcomm.c
 src += win32/sigset.c
 src += win32/timer.c
 src += win32/wsa.c

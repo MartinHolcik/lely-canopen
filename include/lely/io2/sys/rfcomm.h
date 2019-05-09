@@ -25,11 +25,19 @@
 #include <lely/io2/rfcomm.h>
 #include <lely/io2/sys/io.h>
 
+#if _WIN32
+#include <winsock2.h>
+#endif
+
 /**
  * The native handle or file descriptor type of a Bluetooth RFCOMM server or
  * socket.
  */
+#if _WIN32
+typedef SOCKET io_rfcomm_handle_t;
+#else
 typedef int io_rfcomm_handle_t;
+#endif
 
 #ifdef __cplusplus
 extern "C" {
