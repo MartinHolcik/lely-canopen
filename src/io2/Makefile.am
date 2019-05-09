@@ -40,6 +40,8 @@ endif
 src += win32/poll.c
 src += win32/sigset.c
 src += win32/timer.c
+src += win32/wsa.c
+src += win32/wsa.h
 endif
 src += bth.c
 src += buf.c

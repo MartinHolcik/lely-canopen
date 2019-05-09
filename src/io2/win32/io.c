@@ -53,9 +53,16 @@ io_init(void)
 		goto error_sigset_init;
 	}
 
+	if (io_win32_wsa_init() == -1) {
+		dwErrCode = GetLastError();
+		goto error_wsa_init;
+	}
+
 	return 0;
 
-	// io_win32_sigset_fini();
+	// io_win32_wsa_fini();
+error_wsa_init:
+	io_win32_sigset_fini();
 error_sigset_init:
 	io_win32_ntdll_fini();
 error_ntdll_init:
@@ -72,6 +79,7 @@ io_fini(void)
 	if (--io_init_refcnt)
 		return;
 
+	io_win32_wsa_fini();
 	io_win32_sigset_fini();
 	io_win32_ntdll_fini();
 }
