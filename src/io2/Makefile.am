@@ -10,6 +10,9 @@ src += linux/if.h
 src += linux/ifreq.h
 src += linux/io.h
 src += linux/poll.c
+if HAVE_BLUEZ
+src += linux/rfcomm.c
+endif
 src += linux/rtnl.h
 src += linux/timer.c
 endif

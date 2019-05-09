@@ -397,6 +397,18 @@ AS_IF([test "$platform_win32" == "yes"], [
 	LDFLAGS="$LDFLAGS -Wc,-static-libgcc,-static-libstdc++"
 ])
 
+AM_CONDITIONAL([HAVE_BLUEZ], [false])
+AS_IF([test "$platform_linux" == "yes"], [
+	AC_CHECK_HEADERS([bluetooth/bluetooth.h bluetooth/rfcomm.h], [
+		AM_CONDITIONAL([HAVE_BLUEZ], [true])
+		AC_DEFINE([LELY_HAVE_BLUEZ], [1], [Define to 1 if you have Bluez.])
+	], [], [[
+		#ifdef HAVE_BLUETOOTH_BLUETOOTH_H
+		#include <bluetooth/bluetooth.h>
+		#endif
+	]])
+])
+
 AM_CONDITIONAL([HAVE_SOCKET_CAN], [false])
 AS_IF([test "$platform_linux" == "yes"], [
 	AC_CHECK_HEADERS([linux/can.h], [

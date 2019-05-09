@@ -201,6 +201,10 @@ inc += lely/io2/sys/io.h
 if !NO_CXX
 inc += lely/io2/sys/io.hpp
 endif
+inc += lely/io2/sys/rfcomm.h
+if !NO_CXX
+inc += lely/io2/sys/rfcomm.hpp
+endif
 inc += lely/io2/sys/sigset.h
 if !NO_CXX
 inc += lely/io2/sys/sigset.hpp
