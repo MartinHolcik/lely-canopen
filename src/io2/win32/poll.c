@@ -74,6 +74,7 @@ struct io_poll {
 	const struct ev_poll_vtbl *poll_vptr;
 	io_ctx_t *ctx;
 	HANDLE CompletionPort;
+	HANDLE hAfdDevice;
 };
 
 static inline io_poll_t *io_poll_from_svc(const struct io_svc *svc);
@@ -114,11 +115,39 @@ io_poll_init(io_poll_t *poll, io_ctx_t *ctx)
 		goto error_CreateIoCompletionPort;
 	}
 
+	poll->hAfdDevice = AfdOpen(FILE_FLAG_OVERLAPPED);
+	if (poll->hAfdDevice != INVALID_HANDLE_VALUE) {
+		// clang-format off
+		if (!CreateIoCompletionPort(
+				poll->hAfdDevice, poll->CompletionPort, 0, 0)) {
+			// clang-format on
+			dwErrCode = GetLastError();
+			goto error_hAfdDevice;
+		}
+		// clang-format off
+		if (!SetFileCompletionNotificationModes(poll->hAfdDevice,
+				FILE_SKIP_SET_EVENT_ON_HANDLE)) {
+			// clang-format on
+			dwErrCode = GetLastError();
+			goto error_hAfdDevice;
+		}
+	} else {
+		// Wine does not provide "\Device\Afd".
+		if (GetLastError() != ERROR_FILE_NOT_FOUND) {
+			dwErrCode = GetLastError();
+			goto error_hAfdDevice;
+		}
+		SetLastError(dwErrCode);
+	}
+
 	io_ctx_insert(poll->ctx, &poll->svc);
 
 	return poll;
 
-	// CloseHandle(poll->CompletionPort);
+error_hAfdDevice:
+	if (poll->hAfdDevice != INVALID_HANDLE_VALUE)
+		CloseHandle(poll->hAfdDevice);
+	CloseHandle(poll->CompletionPort);
 error_CreateIoCompletionPort:
 	SetLastError(dwErrCode);
 	return NULL;
@@ -131,6 +160,8 @@ io_poll_fini(io_poll_t *poll)
 
 	io_ctx_remove(poll->ctx, &poll->svc);
 
+	if (poll->hAfdDevice != INVALID_HANDLE_VALUE)
+		CloseHandle(poll->hAfdDevice);
 	CloseHandle(poll->CompletionPort);
 }
 
@@ -207,6 +238,93 @@ io_poll_post(io_poll_t *poll, size_t nbytes, struct io_cp *cp)
 	return PostQueuedCompletionStatus(poll->CompletionPort, nbytes, 0,
 			&cp->overlapped) ? 0 : -1;
 	// clang-format on
+}
+
+int
+io_poll_afd(io_poll_t *poll, HANDLE handle, int *events, int timeout)
+{
+	assert(poll);
+	assert(events);
+
+	AFD_POLL_HANDLE_INFO PollHandleInfo = { .Handle = handle,
+		.Events = io_event_to_afd_poll(*events) };
+	*events = 0;
+	DWORD NumberOfHandles = 1;
+	DWORD dwMilliseconds = timeout >= 0 ? (DWORD)timeout : INFINITE;
+	// clang-format off
+	if (!AfdPollWait(poll->hAfdDevice, &PollHandleInfo, &NumberOfHandles,
+			dwMilliseconds))
+		// clang-format on
+		return -1;
+	*events = 0;
+	if (NumberOfHandles)
+		*events = io_afd_poll_to_event(PollHandleInfo.Events);
+
+	return 0;
+}
+
+int
+io_poll_submit_afd(io_poll_t *poll, AFD_POLL_INFO *info, struct io_cp *cp)
+{
+	assert(poll);
+	assert(info);
+	assert(cp);
+
+	DWORD dwErrCode = GetLastError();
+	if (!AfdPoll(poll->hAfdDevice, info, info, NULL, &cp->overlapped)) {
+		if (GetLastError() == ERROR_IO_PENDING)
+			SetLastError(dwErrCode);
+		else
+			return -1;
+	}
+	return 0;
+}
+
+int
+io_poll_cancel_afd(io_poll_t *poll, struct io_cp *cp)
+{
+	assert(poll);
+	assert(cp);
+
+	DWORD dwErrCode = GetLastError();
+	if (!CancelIoEx(poll->hAfdDevice, &cp->overlapped)) {
+		SetLastError(dwErrCode);
+		return 0;
+	}
+	return 1;
+}
+
+int
+io_afd_poll_to_event(ULONG Events)
+{
+	int events = 0;
+	if (Events & (AFD_POLL_RECEIVE | AFD_POLL_DISCONNECT | AFD_POLL_ACCEPT))
+		events |= IO_EVENT_IN;
+	if (Events & AFD_POLL_RECEIVE_EXPEDITED)
+		events |= IO_EVENT_PRI;
+	if (Events & AFD_POLL_SEND)
+		events |= IO_EVENT_OUT;
+	if (Events & (AFD_POLL_ABORT | AFD_POLL_LOCAL_CLOSE))
+		events |= IO_EVENT_HUP;
+	if (Events & AFD_POLL_CONNECT_FAIL)
+		events |= IO_EVENT_IN | IO_EVENT_OUT | IO_EVENT_ERR
+				| IO_EVENT_HUP;
+	return events;
+}
+
+ULONG
+io_event_to_afd_poll(int events)
+{
+	ULONG Events = AFD_POLL_ABORT | AFD_POLL_LOCAL_CLOSE
+			| AFD_POLL_CONNECT_FAIL;
+	if (events & IO_EVENT_IN)
+		Events |= AFD_POLL_RECEIVE | AFD_POLL_DISCONNECT
+				| AFD_POLL_ACCEPT;
+	if (events & IO_EVENT_PRI)
+		Events |= AFD_POLL_RECEIVE_EXPEDITED;
+	if (events & IO_EVENT_OUT)
+		Events |= AFD_POLL_SEND;
+	return Events;
 }
 
 #if !LELY_NO_THREADS

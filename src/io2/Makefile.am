@@ -31,6 +31,7 @@ src += user/can.c
 src += user/stream.c
 src += user/timer.c
 if PLATFORM_WIN32
+src += win32/afd.c
 src += win32/io.c
 src += win32/io.h
 if HAVE_IXXAT

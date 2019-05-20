@@ -31,9 +31,13 @@
 
 #include <windows.h>
 
+LPFN_NTCREATEFILE lpfnNtCreateFile;
+LPFN_RTLINITUNICODESTRING lpfnRtlInitUnicodeString;
 LPFN_RTLNTSTATUSTODOSERROR lpfnRtlNtStatusToDosError;
 
 static size_t io_init_refcnt = 0;
+
+static DWORD dwTlsIndex = TLS_OUT_OF_INDEXES;
 
 int
 io_init(void)
@@ -95,6 +99,16 @@ io_win32_ntdll_init(void)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-function-type"
 #endif
+	lpfnNtCreateFile = (LPFN_NTCREATEFILE)GetProcAddress(
+			hLibModule, "NtCreateFile");
+	if (!lpfnNtCreateFile)
+		goto error_NtCreateFile;
+
+	lpfnRtlInitUnicodeString = (LPFN_RTLINITUNICODESTRING)GetProcAddress(
+			hLibModule, "RtlInitUnicodeString");
+	if (!lpfnRtlInitUnicodeString)
+		goto error_RtlInitUnicodeString;
+
 	lpfnRtlNtStatusToDosError = (LPFN_RTLNTSTATUSTODOSERROR)GetProcAddress(
 			hLibModule, "RtlNtStatusToDosError");
 	if (!lpfnRtlNtStatusToDosError)
@@ -107,6 +121,10 @@ io_win32_ntdll_init(void)
 
 	// lpfnRtlNtStatusToDosError = NULL;
 error_RtlNtStatusToDosError:
+	lpfnRtlInitUnicodeString = NULL;
+error_RtlInitUnicodeString:
+	lpfnNtCreateFile = NULL;
+error_NtCreateFile:
 error_ntdll:
 	return -1;
 }
@@ -115,6 +133,65 @@ void
 io_win32_ntdll_fini(void)
 {
 	lpfnRtlNtStatusToDosError = NULL;
+	lpfnRtlInitUnicodeString = NULL;
+	lpfnNtCreateFile = NULL;
+}
+
+HANDLE
+io_win32_tls_get_event(void)
+{
+	assert(dwTlsIndex != TLS_OUT_OF_INDEXES);
+
+	LPVOID lpTlsValue = TlsGetValue(dwTlsIndex);
+	if (!lpTlsValue) {
+		HANDLE hEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
+		if (hEvent) {
+			lpTlsValue = (LPVOID)hEvent;
+			TlsSetValue(dwTlsIndex, lpTlsValue);
+		}
+	}
+	return (HANDLE)lpTlsValue;
+}
+
+BOOL WINAPI
+DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
+{
+	(void)hinstDLL;
+	(void)lpvReserved;
+
+	switch (fdwReason) {
+	case DLL_PROCESS_ATTACH: {
+		if ((dwTlsIndex = TlsAlloc()) == TLS_OUT_OF_INDEXES)
+			return FALSE;
+	}
+		/* ... falls through ... */
+	case DLL_THREAD_ATTACH: {
+		assert(dwTlsIndex != TLS_OUT_OF_INDEXES);
+		HANDLE hEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
+		if (!hEvent)
+			return FALSE;
+		TlsSetValue(dwTlsIndex, (LPVOID)hEvent);
+		break;
+	}
+	case DLL_PROCESS_DETACH: {
+		if (dwTlsIndex != TLS_OUT_OF_INDEXES) {
+			LPVOID lpTlsValue = TlsGetValue(dwTlsIndex);
+			if (lpTlsValue)
+				CloseHandle((HANDLE)lpTlsValue);
+			TlsFree(dwTlsIndex);
+		}
+		break;
+	}
+	case DLL_THREAD_DETACH: {
+		assert(dwTlsIndex != TLS_OUT_OF_INDEXES);
+		LPVOID lpTlsValue = TlsGetValue(dwTlsIndex);
+		if (lpTlsValue)
+			CloseHandle((HANDLE)lpTlsValue);
+		break;
+	}
+	}
+
+	return TRUE;
 }
 
 #endif // _WIN32

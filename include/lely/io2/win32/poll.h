@@ -2,7 +2,11 @@
  * This header file is part of the I/O library; it contains the I/O polling
  * declarations for Windows.
  *
- * The Windows implementation is based on I/O completion ports.
+ * The Windows implementation is based on I/O completion ports. Readiness
+ * notifications for sockets are based on the (undocumented) Ancillary Function
+ * Driver (AFD).
+ *
+ * @see lely/io2/win32/afd.h
  *
  * @copyright 2018-2019 Lely Industries N.V.
  *
@@ -26,9 +30,9 @@
 
 #include <lely/ev/poll.h>
 #include <lely/io2/ctx.h>
+#include <lely/io2/event.h>
 #include <lely/io2/sys/io.h>
-
-#include <windows.h>
+#include <lely/io2/win32/afd.h>
 
 struct io_cp;
 
@@ -130,6 +134,71 @@ int io_poll_register_handle(io_poll_t *poll, HANDLE handle);
  * can be obtained with GetLastError().
  */
 int io_poll_post(io_poll_t *poll, size_t nbytes, struct io_cp *cp);
+
+/**
+ * Performs a synchronous AFD poll operation on a single socket.
+ *
+ * @param poll    a pointer to an I/O polling instance.
+ * @param handle  the socket handle to monitor. This MUST be a base service
+ *                provider handle.
+ * @param events  on input, a pointer to the I/O events to be monitored (any
+ *                combination of #IO_EVENT_IN, #IO_EVENT_PRI, #IO_EVENT_OUT,
+ *                #IO_EVENT_ERR and #IO_EVENT_HUP). On output, *<b>events</b>
+ *                contains the reported events. Note that error and disconnect
+ *                events are monitored regardless of whether #IO_EVENT_ERR and
+ *                #IO_EVENT_HUP are specified on input.
+ * @param timeout the maximum number of milliseconds this function will block.
+ *                If <b>timeout</b> is negative, this function will block
+ *                indefinitely.
+ *
+ * @returns 0 on success, or -1 on error. In the latter case, the error number
+ * can be obtained with GetLastError().
+ */
+int io_poll_afd(io_poll_t *poll, HANDLE handle, int *events, int timeout);
+
+/**
+ * Submits an AFD poll operation on one or more sockets.
+ *
+ * @param poll a pointer to an I/O polling instance.
+ * @param info a pointer to an opaque AFD poll information struct. It is the
+ *             responsibility of the caller to ensure the buffer is initialized
+ *             and remains valid until the poll operation completes.
+ * @param cp   a pointer to the I/O completion packet to be posted once an I/O
+ *             event occurs.
+ *
+ * @returns 0 on success, or -1 on error. In the latter case, the error number
+ * can be obtained with GetLastError().
+ *
+ * @see io_poll_cancel_afd()
+ */
+int io_poll_submit_afd(io_poll_t *poll, AFD_POLL_INFO *info, struct io_cp *cp);
+
+/**
+ * Cancels an AFD poll operation.
+ *
+ * @returns 1 if the operation was canceled and 0 if not.
+ *
+ * @see io_poll_submit_afd()
+ */
+int io_poll_cancel_afd(io_poll_t *poll, struct io_cp *cp);
+
+/**
+ * Converts the specified AFD poll events to I/O events.
+ *
+ * @returns any combination of #IO_EVENT_IN, #IO_EVENT_PRI, #IO_EVENT_OUT,
+ * #IO_EVENT_ERR and #IO_EVENT_HUP.
+ *
+ * @see io_event_to_afd_poll()
+ */
+int io_afd_poll_to_event(ULONG Events);
+
+/**
+ * Converts the specified I/O events (any combination of #IO_EVENT_IN,
+ * #IO_EVENT_PRI, #IO_EVENT_OUT, #IO_EVENT_ERR and #IO_EVENT_HUP) to AFD poll
+ * events. Note that error and disconnect events are included regardless of
+ * whether #IO_EVENT_ERR and #IO_EVENT_HUP are specified.
+ */
+ULONG io_event_to_afd_poll(int events);
 
 #ifdef __cplusplus
 }
