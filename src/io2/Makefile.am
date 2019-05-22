@@ -27,6 +27,8 @@ src += posix/timer.c
 endif
 endif
 src += sys/clock.c
+src += sys/sock.c
+src += sys/sock.h
 src += user/can.c
 src += user/stream.c
 src += user/timer.c
