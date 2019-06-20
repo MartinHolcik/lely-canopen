@@ -309,6 +309,10 @@ inc += lely/io2/rfcomm.h
 if !NO_CXX
 inc += lely/io2/rfcomm.hpp
 endif
+inc += lely/io2/serial.h
+if !NO_CXX
+inc += lely/io2/serial.hpp
+endif
 inc += lely/io2/sigset.h
 if !NO_CXX
 inc += lely/io2/sigset.hpp
