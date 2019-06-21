@@ -269,4 +269,61 @@ io_fd_sendmsg(int fd, const struct msghdr *msg, int flags, int timeout)
 	return result;
 }
 
+ssize_t
+io_fd_readv(int fd, const struct iovec *iov, int iovcnt, int timeout)
+{
+	ssize_t result = 0;
+	int errsv = errno;
+	for (;;) {
+		errno = errsv;
+		// Try to read some bytes.
+		result = readv(fd, iov, iovcnt);
+		if (result >= 0)
+			break;
+		if (errno == EINTR)
+			continue;
+		if (!timeout || (errno != EAGAIN && errno != EWOULDBLOCK))
+			return -1;
+		// Wait for data to arrive.
+		// clang-format off
+		int events = POLLRDNORM;
+		// clang-format on
+		if (io_fd_wait(fd, &events, timeout) == -1)
+			return -1;
+		// Since the timeout is relative, we can only use a positive
+		// value once.
+		if (timeout > 0)
+			timeout = 0;
+	}
+
+	return result;
+}
+
+ssize_t
+io_fd_writev(int fd, const struct iovec *iov, int iovcnt, int timeout)
+{
+	ssize_t result = 0;
+	int errsv = errno;
+	for (;;) {
+		errno = errsv;
+		// Try to write some bytes.
+		result = writev(fd, iov, iovcnt);
+		if (result >= 0)
+			break;
+		if (errno == EINTR)
+			continue;
+		if (!timeout || (errno != EAGAIN && errno != EWOULDBLOCK))
+			return -1;
+		// Wait for the file descriptor to become ready.
+		int events = POLLWRNORM;
+		if (io_fd_wait(fd, &events, timeout) == -1)
+			return -1;
+		// Since the timeout is relative, we can only use a positive
+		// value once.
+		if (timeout > 0)
+			timeout = 0;
+	}
+	return result;
+}
+
 #endif // _POSIX_C_SOURCE >= 200112L

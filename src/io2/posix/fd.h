@@ -26,6 +26,7 @@
 #if _POSIX_C_SOURCE >= 200112L
 
 #include <sys/socket.h>
+#include <sys/uio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -101,6 +102,24 @@ ssize_t io_fd_recvmsg(int fd, struct msghdr *msg, int flags, int timeout);
  * granularity, but this function MAY return early if interrupted by a signal.
  */
 ssize_t io_fd_sendmsg(int fd, const struct msghdr *msg, int flags, int timeout);
+
+/**
+ * Equivalent to POSIX `readv(fd, iov, iovcnt)`, except that if <b>fd</b> is
+ * non-blocking and <b>timeout</b> is non-negative, this function behaves as if
+ * <b>fd</b> is blocking for at most <b>timeout</b> milliseconds. The timeout
+ * interval will be rounded up to the system clock granularity, but this
+ * function MAY return early if interrupted by a signal.
+ */
+ssize_t io_fd_readv(int fd, const struct iovec *iov, int iovcnt, int timeout);
+
+/**
+ * Equivalent to POSIX `writev(fd, iov, iovcnt)`, except that if <b>fd</b> is
+ * non-blocking and <b>timeout</b> is non-negative, this function behaves as if
+ * <b>fd</b> is blocking for at most <b>timeout</b> milliseconds. The timeout
+ * interval will be rounded up to the system clock granularity, but this
+ * function MAY return early if interrupted by a signal.
+ */
+ssize_t io_fd_writev(int fd, const struct iovec *iov, int iovcnt, int timeout);
 
 #ifdef __cplusplus
 }
