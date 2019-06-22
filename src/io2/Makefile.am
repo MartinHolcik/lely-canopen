@@ -24,6 +24,7 @@ src += posix/io.h
 if !PLATFORM_LINUX
 src += posix/poll.c
 endif
+src += posix/serial.c
 src += posix/sigset.c
 if !PLATFORM_LINUX
 src += posix/timer.c
