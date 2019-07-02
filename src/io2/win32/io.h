@@ -78,6 +78,90 @@ typedef struct _IO_STATUS_BLOCK {
 	ULONG_PTR Information;
 } IO_STATUS_BLOCK, *PIO_STATUS_BLOCK;
 
+typedef enum _FILE_INFORMATION_CLASS {
+	FileDirectoryInformation = 1,
+	FileFullDirectoryInformation,
+	FileBothDirectoryInformation,
+	FileBasicInformation,
+	FileStandardInformation,
+	FileInternalInformation,
+	FileEaInformation,
+	FileAccessInformation,
+	FileNameInformation,
+	FileRenameInformation,
+	FileLinkInformation,
+	FileNamesInformation,
+	FileDispositionInformation,
+	FilePositionInformation,
+	FileFullEaInformation,
+	FileModeInformation,
+	FileAlignmentInformation,
+	FileAllInformation,
+	FileAllocationInformation,
+	FileEndOfFileInformation,
+	FileAlternateNameInformation,
+	FileStreamInformation,
+	FilePipeInformation,
+	FilePipeLocalInformation,
+	FilePipeRemoteInformation,
+	FileMailslotQueryInformation,
+	FileMailslotSetInformation,
+	FileCompressionInformation,
+	FileObjectIdInformation,
+	FileCompletionInformation,
+	FileMoveClusterInformation,
+	FileQuotaInformation,
+	FileReparsePointInformation,
+	FileNetworkOpenInformation,
+	FileAttributeTagInformation,
+	FileTrackingInformation,
+	FileIdBothDirectoryInformation,
+	FileIdFullDirectoryInformation,
+	FileValidDataLengthInformation,
+	FileShortNameInformation,
+	FileIoCompletionNotificationInformation,
+	FileIoStatusBlockRangeInformation,
+	FileIoPriorityHintInformation,
+	FileSfioReserveInformation,
+	FileSfioVolumeInformation,
+	FileHardLinkInformation,
+	FileProcessIdsUsingFileInformation,
+	FileNormalizedNameInformation,
+	FileNetworkPhysicalNameInformation,
+	FileIdGlobalTxDirectoryInformation,
+	FileIsRemoteDeviceInformation,
+	FileUnusedInformation,
+	FileNumaNodeInformation,
+	FileStandardLinkInformation,
+	FileRemoteProtocolInformation,
+	FileRenameInformationBypassAccessCheck,
+	FileLinkInformationBypassAccessCheck,
+	FileVolumeNameInformation,
+	FileIdInformation,
+	FileIdExtdDirectoryInformation,
+	FileReplaceCompletionInformation,
+	FileHardLinkFullIdInformation,
+	FileIdExtdBothDirectoryInformation,
+	FileDispositionInformationEx,
+	FileRenameInformationEx,
+	FileRenameInformationExBypassAccessCheck,
+	FileDesiredStorageClassInformation,
+	FileStatInformation,
+	FileMemoryPartitionInformation,
+	FileStatLxInformation,
+	FileCaseSensitiveInformation,
+	FileLinkInformationEx,
+	FileLinkInformationExBypassAccessCheck,
+	FileStorageReserveIdInformation,
+	FileCaseSensitiveInformationForceAccessCheck,
+	FileMaximumInformation
+} FILE_INFORMATION_CLASS,
+		*PFILE_INFORMATION_CLASS;
+
+typedef struct _FILE_MODE_INFORMATION {
+	ULONG Mode;
+} FILE_MODE_INFORMATION, *PFILE_MODE_INFORMATION;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -89,6 +173,11 @@ typedef NTSTATUS(NTAPI *LPFN_NTCREATEFILE)(PHANDLE FileHandle,
 		ULONG CreateDisposition, ULONG CreateOptions, PVOID EaBuffer,
 		ULONG EaLength);
 extern LPFN_NTCREATEFILE lpfnNtCreateFile;
+
+typedef NTSTATUS(NTAPI *LPFN_NTQUERYINFORMATIONFILE)(HANDLE FileHandle,
+		PIO_STATUS_BLOCK IoStatusBlock, PVOID FileInformation,
+		ULONG Length, FILE_INFORMATION_CLASS FileInformationClass);
+extern LPFN_NTQUERYINFORMATIONFILE lpfnNtQueryInformationFile;
 
 typedef void(NTAPI *LPFN_RTLINITUNICODESTRING)(
 		PUNICODE_STRING DestinationString, PCWSTR SourceString);

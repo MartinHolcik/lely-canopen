@@ -32,6 +32,7 @@
 #include <windows.h>
 
 LPFN_NTCREATEFILE lpfnNtCreateFile;
+LPFN_NTQUERYINFORMATIONFILE lpfnNtQueryInformationFile;
 LPFN_RTLINITUNICODESTRING lpfnRtlInitUnicodeString;
 LPFN_RTLNTSTATUSTODOSERROR lpfnRtlNtStatusToDosError;
 
@@ -104,6 +105,12 @@ io_win32_ntdll_init(void)
 	if (!lpfnNtCreateFile)
 		goto error_NtCreateFile;
 
+	lpfnNtQueryInformationFile =
+			(LPFN_NTQUERYINFORMATIONFILE)GetProcAddress(
+					hLibModule, "NtQueryInformationFile");
+	if (!lpfnNtQueryInformationFile)
+		goto error_NtQueryInformationFile;
+
 	lpfnRtlInitUnicodeString = (LPFN_RTLINITUNICODESTRING)GetProcAddress(
 			hLibModule, "RtlInitUnicodeString");
 	if (!lpfnRtlInitUnicodeString)
@@ -123,6 +130,8 @@ io_win32_ntdll_init(void)
 error_RtlNtStatusToDosError:
 	lpfnRtlInitUnicodeString = NULL;
 error_RtlInitUnicodeString:
+	lpfnNtQueryInformationFile = NULL;
+error_NtQueryInformationFile:
 	lpfnNtCreateFile = NULL;
 error_NtCreateFile:
 error_ntdll:
@@ -134,6 +143,7 @@ io_win32_ntdll_fini(void)
 {
 	lpfnRtlNtStatusToDosError = NULL;
 	lpfnRtlInitUnicodeString = NULL;
+	lpfnNtQueryInformationFile = NULL;
 	lpfnNtCreateFile = NULL;
 }
 
