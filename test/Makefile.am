@@ -131,6 +131,12 @@ test_io2_tqueue_LDADD = $(LELY_IO2_LIBS)
 endif
 
 if !NO_CXX
+bin += test-io2-udp
+test_io2_udp_SOURCES = test.h io2-udp.cpp
+test_io2_udp_LDADD = $(LELY_IO2_LIBS)
+endif
+
+if !NO_CXX
 bin += test-io2-vcan
 test_io2_vcan_SOURCES = test.h io2-vcan.cpp
 test_io2_vcan_LDADD = $(LELY_IO2_LIBS)
