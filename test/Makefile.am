@@ -113,6 +113,12 @@ endif
 endif
 
 if !NO_CXX
+bin += test-io2-tcp
+test_io2_tcp_SOURCES = test.h io2-tcp.cpp
+test_io2_tcp_LDADD = $(LELY_IO2_LIBS)
+endif
+
+if !NO_CXX
 bin += test-io2-timer
 test_io2_timer_SOURCES = test.h io2-timer.cpp
 test_io2_timer_LDADD = $(LELY_IO2_LIBS)
