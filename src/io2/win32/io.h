@@ -25,7 +25,13 @@
 
 #if _WIN32
 
-#include <winternl.h>
+#ifndef _NTDEF_
+typedef LONG NTSTATUS;
+#endif
+
+#ifndef NT_SUCCESS
+#define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
+#endif
 
 #ifdef __cplusplus
 extern "C" {
