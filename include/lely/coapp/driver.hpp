@@ -1,6 +1,6 @@
 /**@file
  * This header file is part of the C++ CANopen application library; it contains
- * the remote node driver interface declarations.
+ * the remote node and logical device driver interface declarations.
  *
  * @copyright 2018-2019 Lely Industries N.V.
  *
@@ -24,6 +24,7 @@
 
 #include <lely/coapp/master.hpp>
 
+#include <map>
 #include <string>
 #include <utility>
 
@@ -39,7 +40,6 @@ class DriverBase {
   DriverBase() = default;
 
   DriverBase(const DriverBase&) = delete;
-
   DriverBase& operator=(const DriverBase&) = delete;
 
   virtual ~DriverBase() = default;
@@ -254,9 +254,29 @@ class DriverBase {
   virtual void OnEmcy(uint16_t eec, uint8_t er, uint8_t msef[5]) noexcept = 0;
 };
 
+/// The abstract driver interface for a logical device on a remote CANopen node.
+class LogicalDriverBase : public DriverBase {
+ public:
+  /// Returns the number of the logical device on the remote note.
+  virtual int Number() const noexcept = 0;
+
+  /**
+   * Asynchronously updates the logical device type and, on success, queues
+   * the DriverBase::OnConfig() method and creates a future which becomes ready
+   * once the configuration process completes.
+   */
+  virtual SdoFuture<void> AsyncConfig() = 0;
+
+  /**
+   * Queues the DriverBase::OnDeconfig() method and creates a future which
+   * becomes ready once the deconfiguration process completes.
+   */
+  virtual SdoFuture<void> AsyncDeconfig() = 0;
+};
+
 /// The base class for drivers for remote CANopen nodes.
-class BasicDriver : DriverBase {
-  friend class BasicMaster;
+class BasicDriver : DriverBase,
+                    protected ::std::map<uint8_t, LogicalDriverBase*> {
   friend class LoopDriver;
 
  public:
@@ -284,7 +304,10 @@ class BasicDriver : DriverBase {
     return ev::Executor(exec_);
   }
 
-  uint8_t netid() const noexcept final;
+  uint8_t
+  netid() const noexcept final {
+    return master.netid();
+  }
 
   uint8_t
   id() const noexcept final {
@@ -541,6 +564,25 @@ class BasicDriver : DriverBase {
   }
 
   /**
+   * Registers a logical device driver for the remote node. If an event occurs
+   * for the node, or for the entire CANopen network, the corresponding method
+   * of the logical driver will be invoked.
+   *
+   * @throws std::out_of_range if the logical device number is invalid or
+   * already registered.
+   *
+   * @see Erase()
+   */
+  void Insert(LogicalDriverBase& driver);
+
+  /**
+   * Unregisters a logical device driver for the remote node.
+   *
+   * @see Insert()
+   */
+  void Erase(LogicalDriverBase& driver);
+
+  /**
    * Schedules the specified Callable object for execution by the executor for
    * this driver.
    *
@@ -574,7 +616,448 @@ class BasicDriver : DriverBase {
   /// @see BasicMaster::tpdo_event_mutex
   TpdoEventMutex& tpdo_event_mutex;
 
+ protected:
+  using MapType = ::std::map<uint8_t, LogicalDriverBase*>;
+
+  /**
+   * The default implementation notifies all registered logical device drivers.
+   *
+   * @see IoContext::OnCanError(), DriverBase::OnCanError()
+   */
+  void OnCanState(io::CanState new_state,
+                  io::CanState old_state) noexcept override;
+
+  /**
+   * The default implementation notifies all registered logical device drivers.
+   *
+   * @see IoContext::OnCanState(), DriverBase::OnCanState()
+   */
+  void OnCanError(io::CanError error) noexcept override;
+
+  /**
+   * The default implementation notifies all registered logical device drivers,
+   * unless the object index is part of the standardized profile area of a
+   * logical device (6000..9FFF). In that case, the driver registered for the
+   * corresponding logical device is notified and the object index is adjusted
+   * to the standardized profile area of the first logical device (6000..67FF).
+   *
+   * @see DriverBase::OnRpdoWrite()
+   */
+  void OnRpdoWrite(uint16_t idx, uint8_t subidx) noexcept override;
+
+  /**
+   * The default implementation notifies all registered logical device drivers.
+   *
+   * @see Node::OnCommand(), DriverBase::OnCommand()
+   */
+  void OnCommand(NmtCommand cs) noexcept override;
+
+  /**
+   * The default implementation notifies all registered logical device drivers.
+   *
+   * @see DriverBase::OnNodeGuarding()
+   */
+  void OnNodeGuarding(bool occurred) noexcept override;
+
+  /**
+   * The default implementation notifies all registered logical device drivers.
+   *
+   * @see DriverBase::OnHeartbeat()
+   */
+  void OnHeartbeat(bool occurred) noexcept override;
+
+  /**
+   * The default implementation notifies all registered logical device drivers.
+   *
+   * @see DriverBase::OnState()
+   */
+  void OnState(NmtState st) noexcept override;
+
+  /**
+   * The default implementation notifies all registered logical device drivers.
+   *
+   * @see DriverBase::OnBoot()
+   */
+  void OnBoot(NmtState st, char es,
+              const ::std::string& what) noexcept override;
+
+  void OnConfig(
+      ::std::function<void(::std::error_code ec)> res) noexcept override;
+
+  void OnDeconfig(
+      ::std::function<void(::std::error_code ec)> res) noexcept override;
+
+  /**
+   * The default implementation notifies all registered logical device drivers.
+   *
+   * @see Node::OnSync(), DriverBase::OnSync()
+   */
+  void OnSync(uint8_t cnt, const time_point& t) noexcept override;
+
+  /**
+   * The default implementation notifies all registered logical device drivers.
+   *
+   * @see Node::OnSyncError(), DriverBase::OnSyncError()
+   */
+  void OnSyncError(uint16_t eec, uint8_t er) noexcept override;
+
+  /**
+   * The default implementation notifies all registered logical device drivers.
+   *
+   * @see Node::OnTime(), DriverBase::OnTime()
+   */
+  void OnTime(const ::std::chrono::system_clock::time_point&
+                  abs_time) noexcept override;
+
+  /**
+   * The default implementation notifies all registered logical device drivers.
+   *
+   * @see DriverBase::OnEmcy()
+   */
+  void OnEmcy(uint16_t eec, uint8_t er, uint8_t msef[5]) noexcept override;
+
+  /**
+   * Invokes LogicalDriverBase::AsyncConfig() for the specified logical device
+   * driver. If <b>num</b> is 0, invokes LogicalDriverBase::AsyncConfig() for
+   * all registered logical device drivers and returns a future which becomes
+   * ready once all configuration processes complete.
+   */
+  SdoFuture<void> AsyncConfig(int num = 0);
+
+  /**
+   * Invokes LogicalDriverBase::AsyncDeconfig() for the specified logical device
+   * driver. If <b>num</b> is 0, invokes LogicalDriverBase::AsyncDeconfig() for
+   * all registered logical device drivers and returns a future which becomes
+   * ready once all deconfiguration processes complete.
+   */
+  SdoFuture<void> AsyncDeconfig(int num = 0);
+
  private:
+  ev_exec_t* exec_{nullptr};
+  const uint8_t id_{0xff};
+};
+
+/// The base class for drivers for logical devices on remote CANopen nodes.
+class BasicLogicalDriver : LogicalDriverBase {
+ public:
+  using DriverBase::time_point;
+  using TpdoEventMutex = BasicDriver::TpdoEventMutex;
+
+  BasicLogicalDriver(BasicDriver& driver, int num = 1, uint32_t dev = 0);
+
+  virtual ~BasicLogicalDriver();
+
+  ev::Executor
+  GetExecutor() const noexcept final {
+    return driver.GetExecutor();
+  }
+
+  uint8_t
+  netid() const noexcept final {
+    return driver.netid();
+  }
+
+  uint8_t
+  id() const noexcept final {
+    return driver.id();
+  }
+
+  int
+  Number() const noexcept final {
+    return num_;
+  }
+
+  /// Returns the device type of the logical device on the remote node.
+  uint32_t
+  DeviceType() const noexcept {
+    return dev_;
+  }
+
+  /**
+   * Returns the device profile number of the logical device on the remote node,
+   * or 0 if the device does not follow a standardized profile.
+   */
+  int
+  Profile() const noexcept {
+    return DeviceType() & 0xffff;
+  }
+
+  /**
+   * Returns true if the remote node is ready (i.e., the NMT `boot slave`
+   * process has successfully completed and no subsequent boot-up event has been
+   * received) and false if not.
+   *
+   * @see BasicDriver::IsReady()
+   */
+  bool
+  IsReady() const {
+    return driver.IsReady();
+  }
+
+  /**
+   * Indicates the occurrence of an error event on the remote node and triggers
+   * the error handling process.
+   *
+   * @see BasicDriver::Error()
+   */
+  void
+  Error() {
+    driver.Error();
+  }
+
+  /**
+   * Equivalent to
+   * #SubmitRead(uint16_t idx, uint8_t subidx, F&& con, const ::std::chrono::milliseconds& timeout),
+   * except that it uses the SDO timeout given by
+   * #lely::canopen::BasicMaster::GetTimeout().
+   */
+  template <class T, class F>
+  void
+  SubmitRead(uint16_t idx, uint8_t subidx, F&& con) {
+    driver.SubmitRead<T>(ObjectIndex(idx), subidx, ::std::forward<F>(con));
+  }
+
+  /**
+   * Equivalent to
+   * #SubmitRead(uint16_t idx, uint8_t subidx, F&& con, const ::std::chrono::milliseconds& timeout, ::std::error_code& ec),
+   * except that it uses the SDO timeout given by
+   * #lely::canopen::BasicMaster::GetTimeout().
+   */
+  template <class T, class F>
+  void
+  SubmitRead(uint16_t idx, uint8_t subidx, F&& con, ::std::error_code& ec) {
+    driver.SubmitRead<T>(ObjectIndex(idx), subidx, ::std::forward<F>(con), ec);
+  }
+
+  /**
+   * Equivalent to
+   * #SubmitRead(uint16_t idx, uint8_t subidx, F&& con, const ::std::chrono::milliseconds& timeout, ::std::error_code& ec),
+   * except that it throws #lely::canopen::SdoError on error.
+   */
+  template <class T, class F>
+  void
+  SubmitRead(uint16_t idx, uint8_t subidx, F&& con,
+             const ::std::chrono::milliseconds& timeout) {
+    driver.SubmitRead<T>(ObjectIndex(idx), subidx, ::std::forward<F>(con),
+                         timeout);
+  }
+
+  /**
+   * Queues an asynchronous read (SDO upload) operation. This function reads the
+   * value of a sub-object in a remote object dictionary.
+   *
+   * @param idx     the object index.
+   * @param subidx  the object sub-index.
+   * @param con     the confirmation function to be called on completion of the
+   *                SDO request.
+   * @param timeout the SDO timeout. If, after the request is initiated, the
+   *                timeout expires before receiving a response from the server,
+   *                the client aborts the transfer with abort code
+   *                #SdoErrc::TIMEOUT.
+   * @param ec      the error code (0 on success). `ec == SdoErrc::NO_SDO` if no
+   *                client-SDO is available.
+   */
+  template <class T, class F>
+  void
+  SubmitRead(uint16_t idx, uint8_t subidx, F&& con,
+             const ::std::chrono::milliseconds& timeout,
+             ::std::error_code& ec) {
+    driver.SubmitRead<T>(ObjectIndex(idx), subidx, ::std::forward<F>(con),
+                         timeout, ec);
+  }
+
+  /**
+   * Equivalent to
+   * #SubmitWrite(uint16_t idx, uint8_t subidx, T&& value, F&& con, const ::std::chrono::milliseconds& timeout),
+   * except that it uses the SDO timeout given by
+   * #lely::canopen::BasicMaster::GetTimeout().
+   */
+  template <class T, class F>
+  void
+  SubmitWrite(uint16_t idx, uint8_t subidx, T&& value, F&& con) {
+    driver.SubmitWrite(ObjectIndex(idx), subidx, ::std::forward<T>(value),
+                       ::std::forward<F>(con));
+  }
+
+  /**
+   * Equivalent to
+   * #SubmitWrite(uint16_t idx, uint8_t subidx, T&& value, F&& con, const ::std::chrono::milliseconds& timeout, ::std::error_code& ec),
+   * except that it uses the SDO timeout given by
+   * #lely::canopen::BasicMaster::GetTimeout().
+   */
+  template <class T, class F>
+  void
+  SubmitWrite(uint16_t idx, uint8_t subidx, T&& value, F&& con,
+              ::std::error_code& ec) {
+    driver.SubmitWrite(ObjectIndex(idx), subidx, ::std::forward<T>(value),
+                       ::std::forward<F>(con), ec);
+  }
+
+  /**
+   * Equivalent to
+   * #SubmitWrite(uint16_t idx, uint8_t subidx, T&& value, F&& con, const ::std::chrono::milliseconds& timeout, ::std::error_code& ec),
+   * except that it throws #lely::canopen::SdoError on error.
+   */
+  template <class T, class F>
+  void
+  SubmitWrite(uint16_t idx, uint8_t subidx, T&& value, F&& con,
+              const ::std::chrono::milliseconds& timeout) {
+    driver.SubmitWrite(ObjectIndex(idx), subidx, ::std::forward<T>(value),
+                       ::std::forward<F>(con), timeout);
+  }
+
+  /**
+   * Queues an asynchronous write (SDO download) operation. This function writes
+   * a value to a sub-object in a remote object dictionary.
+   *
+   * @param idx     the object index.
+   * @param subidx  the object sub-index.
+   * @param value   the value to be written.
+   * @param con     the confirmation function to be called on completion of the
+   *                SDO request.
+   * @param timeout the SDO timeout. If, after the request is initiated, the
+   *                timeout expires before receiving a response from the server,
+   *                the client aborts the transfer with abort code
+   *                #SdoErrc::TIMEOUT.
+   * @param ec      the error code (0 on success). `ec == SdoErrc::NO_SDO` if no
+   *                client-SDO is available.
+   */
+  template <class T, class F>
+  void
+  SubmitWrite(uint16_t idx, uint8_t subidx, T&& value, F&& con,
+              const ::std::chrono::milliseconds& timeout,
+              ::std::error_code& ec) {
+    driver.SubmitWrite(ObjectIndex(idx), subidx, ::std::forward<T>(value),
+                       ::std::forward<F>(con), timeout, ec);
+  }
+
+  /**
+   * Equivalent to
+   * #AsyncRead(uint16_t idx, uint8_t subidx, const ::std::chrono::milliseconds& timeout),
+   * except that it uses the SDO timeout given by
+   * #lely::canopen::BasicMaster::GetTimeout().
+   */
+  template <class T>
+  SdoFuture<T>
+  AsyncRead(uint16_t idx, uint8_t subidx) {
+    return driver.AsyncRead<T>(ObjectIndex(idx), subidx);
+  }
+
+  /**
+   * Queues an asynchronous read (SDO upload) operation and creates a future
+   * which becomes ready once the request completes (or is canceled).
+   *
+   * @param idx     the object index.
+   * @param subidx  the object sub-index.
+   * @param timeout the SDO timeout. If, after the request is initiated, the
+   *                timeout expires before receiving a response from the server,
+   *                the client aborts the transfer with abort code
+   *                #SdoErrc::TIMEOUT.
+   *
+   * @returns a future which holds the received value on success and the SDO
+   * error on failure.
+   */
+  template <class T>
+  SdoFuture<T>
+  AsyncRead(uint16_t idx, uint8_t subidx,
+            const ::std::chrono::milliseconds& timeout) {
+    return driver.AsyncRead<T>(ObjectIndex(idx), subidx, timeout);
+  }
+
+  /**
+   * Equivalent to
+   * #AsyncWrite(uint16_t idx, uint8_t subidx, T&& value, const ::std::chrono::milliseconds& timeout),
+   * except that it uses the SDO timeout given by
+   * #lely::canopen::BasicMaster::GetTimeout().
+   */
+  template <class T>
+  SdoFuture<void>
+  AsyncWrite(uint16_t idx, uint8_t subidx, T&& value) {
+    return driver.AsyncWrite(ObjectIndex(idx), subidx,
+                             ::std::forward<T>(value));
+  }
+
+  /**
+   * Queues an asynchronous write (SDO download) operation and creates a future
+   * which becomes ready once the request completes (or is canceled).
+   *
+   * @param idx     the object index.
+   * @param subidx  the object sub-index.
+   * @param value   the value to be written.
+   * @param timeout the SDO timeout. If, after the request is initiated, the
+   *                timeout expires before receiving a response from the server,
+   *                the client aborts the transfer with abort code
+   *                #SdoErrc::TIMEOUT.
+   *
+   * @returns a future which holds the SDO error on failure.
+   */
+  template <class T>
+  SdoFuture<void>
+  AsyncWrite(uint16_t idx, uint8_t subidx, T&& value,
+             const ::std::chrono::milliseconds& timeout) {
+    return driver.AsyncWrite(ObjectIndex(idx), subidx, ::std::forward<T>(value),
+                             timeout);
+  }
+
+  /**
+   * Schedules the specified Callable object for execution by the executor for
+   * this driver.
+   *
+   * @see GetExecutor()
+   */
+  template <class F, class... Args>
+  void
+  Post(F&& f, Args&&... args) {
+    GetExecutor().post(::std::forward<F>(f), ::std::forward<Args>(args)...);
+  }
+
+  /// A reference to the master with which #driver is registered.
+  BasicMaster& master;
+
+  /**
+   * A reference to the driver with which this logical device driver is
+   * registered.
+   */
+  BasicDriver& driver;
+
+  class RpdoMapped {
+    friend class BasicLogicalDriver;
+
+   public:
+    BasicMaster::ConstObject operator[](uint16_t idx) const {
+      return self_.driver.rpdo_mapped[self_.ObjectIndex(idx)];
+    }
+
+   private:
+    explicit RpdoMapped(BasicLogicalDriver& self) noexcept
+        : self_(self) {}
+
+    BasicLogicalDriver& self_;
+  } rpdo_mapped;
+
+  class TpdoMapped {
+    friend class BasicLogicalDriver;
+
+   public:
+    BasicMaster::Object operator[](uint16_t idx) {
+      return self_.driver.tpdo_mapped[self_.ObjectIndex(idx)];
+    }
+
+    BasicMaster::ConstObject operator[](uint16_t idx) const {
+      const auto& tpdo_mapped = self_.driver.tpdo_mapped;
+      return tpdo_mapped[self_.ObjectIndex(idx)];
+    }
+
+   private:
+    explicit TpdoMapped(BasicLogicalDriver& self) noexcept : self_(self) {}
+
+    BasicLogicalDriver& self_;
+  } tpdo_mapped;
+
+  /// @see BasicMaster::tpdo_event_mutex
+  TpdoEventMutex& tpdo_event_mutex;
+
+ protected:
   void
   OnCanState(io::CanState /*new_state*/,
              io::CanState /*old_state*/) noexcept override {}
@@ -605,13 +1088,13 @@ class BasicDriver : DriverBase {
 
   void
   OnConfig(::std::function<void(::std::error_code ec)> res) noexcept override {
-    res(::std::error_code());
+    res(::std::error_code{});
   }
 
   void
   OnDeconfig(
       ::std::function<void(::std::error_code ec)> res) noexcept override {
-    res(::std::error_code());
+    res(::std::error_code{});
   }
 
   void
@@ -628,8 +1111,24 @@ class BasicDriver : DriverBase {
   OnEmcy(uint16_t /*eec*/, uint8_t /*er*/,
          uint8_t /*msef*/[5]) noexcept override {}
 
-  ev_exec_t* exec_{nullptr};
-  const uint8_t id_{0xff};
+  /**
+   * Converts an object index, if it is part of the standardized profile area,
+   * from the first logical device to the actual logical device. This allows the
+   * driver to treat index 6000..67FF as the profile area, even if
+   * `Number() != 1`.
+   */
+  uint16_t
+  ObjectIndex(uint16_t idx) const noexcept {
+    return (idx >= 0x6000 && idx <= 0x67ff) ? idx + (num_ - 1) * 0x800 : idx;
+  }
+
+ private:
+  SdoFuture<void> AsyncConfig() final;
+
+  SdoFuture<void> AsyncDeconfig() final;
+
+  int num_{1};
+  uint32_t dev_{0};
 };
 
 }  // namespace canopen
