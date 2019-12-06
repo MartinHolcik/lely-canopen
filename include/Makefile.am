@@ -381,6 +381,9 @@ endif
 
 if !NO_CXX
 inc += lely/coapp/detail/type_traits.hpp
+if !NO_COAPP_MASTER
+inc += lely/coapp/drivers/401.hpp
+endif
 inc += lely/coapp/device.hpp
 if !NO_COAPP_MASTER
 inc += lely/coapp/driver.hpp

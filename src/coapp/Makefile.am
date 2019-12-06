@@ -1,4 +1,7 @@
 src =
+if !NO_COAPP_MASTER
+src += drivers/401.cpp
+endif
 src += coapp.hpp
 src += device.cpp
 if !NO_COAPP_MASTER
