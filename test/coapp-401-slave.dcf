@@ -1,0 +1,578 @@
+[DeviceInfo]
+VendorName=Lely Industries N.V.
+VendorNumber=0x00000360
+BaudRate_10=1
+BaudRate_20=1
+BaudRate_50=1
+BaudRate_125=1
+BaudRate_250=1
+BaudRate_500=1
+BaudRate_800=1
+BaudRate_1000=1
+LSS_Supported=1
+NrOfRxPDO=1
+NrOfTxPDO=1
+CompactPDO=0x3f
+
+[DummyUsage]
+Dummy0002=1
+Dummy0003=1
+Dummy0004=1
+Dummy0005=1
+Dummy0006=1
+Dummy0007=1
+Dummy0010=1
+Dummy0012=1
+Dummy0013=1
+Dummy0014=1
+Dummy0015=1
+Dummy0016=1
+Dummy0018=1
+Dummy0019=1
+Dummy001A=1
+Dummy001B=1
+
+[MandatoryObjects]
+SupportedObjects=3
+1=0x1000
+2=0x1001
+3=0x1018
+
+[OptionalObjects]
+SupportedObjects=27
+1=0x1005
+2=0x1014
+3=0x1016
+4=0x1017
+5=0x1400
+6=0x1441
+7=0x1442
+8=0x1443
+9=0x1600
+10=0x1641
+11=0x1642
+12=0x1643
+13=0x1800
+14=0x1841
+15=0x1842
+16=0x1843
+17=0x1A00
+18=0x1A41
+19=0x1A42
+20=0x1A43
+21=0x1F80
+22=0x6000
+23=0x6200
+24=0x67FF
+25=0x6C01
+26=0x6C11
+27=0x6FFF
+
+[ManufacturerObjects]
+SupportedObjects=0
+
+[1000]
+ParameterName=Device type
+DataType=0x0007
+AccessType=ro
+DefaultValue=0xFFFF0191
+
+[1001]
+ParameterName=Error register
+DataType=0x0005
+AccessType=ro
+
+[1005]
+ParameterName=COB-ID SYNC message
+DataType=0x0007
+AccessType=rw
+DefaultValue=0x00000080
+
+[1014]
+ParameterName=COB-ID EMCY
+DataType=0x0007
+AccessType=rw
+DefaultValue=$NODEID+0x80
+
+[1016]
+ParameterName=Consumer heartbeat time
+ObjectType=0x08
+DataType=0x0007
+AccessType=rw
+CompactSubObj=1
+
+[1016Value]
+NrOfEntries=1
+1=0x00010400
+
+[1017]
+ParameterName=Producer heartbeat time
+DataType=0x0006
+AccessType=rw
+DefaultValue=500
+
+[1018]
+SubNumber=5
+ParameterName=Identity object
+ObjectType=0x09
+
+[1018sub0]
+ParameterName=Highest sub-index supported
+DataType=0x0005
+AccessType=const
+DefaultValue=4
+
+[1018sub1]
+ParameterName=Vendor-ID
+DataType=0x0007
+AccessType=ro
+DefaultValue=0x00000360
+
+[1018sub2]
+ParameterName=Product code
+DataType=0x0007
+AccessType=ro
+
+[1018sub3]
+ParameterName=Revision number
+DataType=0x0007
+AccessType=ro
+
+[1018sub4]
+ParameterName=Serial number
+DataType=0x0007
+AccessType=ro
+
+[1400]
+SubNumber=3
+ParameterName=RPDO communication parameter
+ObjectType=0x09
+
+[1400sub0]
+ParameterName=Highest sub-index supported
+DataType=0x0005
+AccessType=const
+DefaultValue=0x02
+
+[1400sub1]
+ParameterName=COB-ID used by RPDO
+DataType=0x0007
+AccessType=rw
+DefaultValue=$NODEID+0x200
+
+[1400sub2]
+ParameterName=Transmission type
+DataType=0x0005
+AccessType=rw
+DefaultValue=0x01
+
+[1441]
+SubNumber=3
+ParameterName=RPDO communication parameter
+ObjectType=0x09
+
+[1441sub0]
+ParameterName=Highest sub-index supported
+DataType=0x0005
+AccessType=const
+DefaultValue=0x02
+
+[1441sub1]
+ParameterName=COB-ID used by RPDO
+DataType=0x0007
+AccessType=rw
+DefaultValue=$NODEID+0x300
+
+[1441sub2]
+ParameterName=Transmission type
+DataType=0x0005
+AccessType=rw
+DefaultValue=0x01
+
+[1442]
+SubNumber=3
+ParameterName=RPDO communication parameter
+ObjectType=0x09
+
+[1442sub0]
+ParameterName=Highest sub-index supported
+DataType=0x0005
+AccessType=const
+DefaultValue=0x02
+
+[1442sub1]
+ParameterName=COB-ID used by RPDO
+DataType=0x0007
+AccessType=rw
+DefaultValue=$NODEID+0x400
+
+[1442sub2]
+ParameterName=Transmission type
+DataType=0x0005
+AccessType=rw
+DefaultValue=0x01
+
+[1443]
+SubNumber=3
+ParameterName=RPDO communication parameter
+ObjectType=0x09
+
+[1443sub0]
+ParameterName=Highest sub-index supported
+DataType=0x0005
+AccessType=const
+DefaultValue=0x02
+
+[1443sub1]
+ParameterName=COB-ID used by RPDO
+DataType=0x0007
+AccessType=rw
+DefaultValue=$NODEID+0x500
+
+[1443sub2]
+ParameterName=Transmission type
+DataType=0x0005
+AccessType=rw
+DefaultValue=0x01
+
+[1600]
+ParameterName=RPDO mapping parameter
+ObjectType=0x09
+DataType=0x0007
+AccessType=rw
+CompactSubObj=8
+
+[1600Value]
+NrOfEntries=8
+1=0x62000108
+2=0x62000208
+3=0x62000308
+4=0x62000408
+5=0x62000508
+6=0x62000608
+7=0x62000708
+8=0x62000808
+
+[1641]
+ParameterName=RPDO mapping parameter
+ObjectType=0x09
+DataType=0x0007
+AccessType=rw
+CompactSubObj=4
+
+[1641Value]
+NrOfEntries=4
+1=0x6C110110
+2=0x6C110210
+3=0x6C110310
+4=0x6C110410
+
+[1642]
+ParameterName=RPDO mapping parameter
+ObjectType=0x09
+DataType=0x0007
+AccessType=rw
+CompactSubObj=4
+
+[1642Value]
+NrOfEntries=4
+1=0x6C110510
+2=0x6C110610
+3=0x6C110710
+4=0x6C110810
+
+[1643]
+ParameterName=RPDO mapping parameter
+ObjectType=0x09
+DataType=0x0007
+AccessType=rw
+CompactSubObj=4
+
+[1643Value]
+NrOfEntries=4
+1=0x6C110910
+2=0x6C110A10
+3=0x6C110B10
+4=0x6C110C10
+
+[1800]
+SubNumber=3
+ParameterName=TPDO communication parameter
+ObjectType=0x09
+
+[1800sub0]
+ParameterName=Highest sub-index supported
+DataType=0x0005
+AccessType=const
+DefaultValue=0x06
+
+[1800sub1]
+ParameterName=COB-ID used by TPDO
+DataType=0x0007
+AccessType=rw
+DefaultValue=$NODEID+0x180
+
+[1800sub2]
+ParameterName=Transmission type
+DataType=0x0005
+AccessType=rw
+DefaultValue=0x01
+
+[1800sub3]
+ParameterName=Inhibit time
+DataType=0x0006
+AccessType=rw
+
+[1800sub4]
+ParameterName=Reserved
+DataType=0x0005
+AccessType=rw
+
+[1800sub5]
+ParameterName=Event timer
+DataType=0x0006
+AccessType=rw
+
+[1800sub6]
+ParameterName=SYNC start value
+DataType=0x0005
+AccessType=rw
+
+[1841]
+SubNumber=3
+ParameterName=TPDO communication parameter
+ObjectType=0x09
+
+[1841sub0]
+ParameterName=Highest sub-index supported
+DataType=0x0005
+AccessType=const
+DefaultValue=0x06
+
+[1841sub1]
+ParameterName=COB-ID used by TPDO
+DataType=0x0007
+AccessType=rw
+DefaultValue=$NODEID+0x280
+
+[1841sub2]
+ParameterName=Transmission type
+DataType=0x0005
+AccessType=rw
+DefaultValue=0x01
+
+[1841sub3]
+ParameterName=Inhibit time
+DataType=0x0006
+AccessType=rw
+
+[1841sub4]
+ParameterName=Reserved
+DataType=0x0005
+AccessType=rw
+
+[1841sub5]
+ParameterName=Event timer
+DataType=0x0006
+AccessType=rw
+
+[1841sub6]
+ParameterName=SYNC start value
+DataType=0x0005
+AccessType=rw
+
+[1842]
+SubNumber=3
+ParameterName=TPDO communication parameter
+ObjectType=0x09
+
+[1842sub0]
+ParameterName=Highest sub-index supported
+DataType=0x0005
+AccessType=const
+DefaultValue=0x06
+
+[1842sub1]
+ParameterName=COB-ID used by TPDO
+DataType=0x0007
+AccessType=rw
+DefaultValue=$NODEID+0x380
+
+[1842sub2]
+ParameterName=Transmission type
+DataType=0x0005
+AccessType=rw
+DefaultValue=0x01
+
+[1842sub3]
+ParameterName=Inhibit time
+DataType=0x0006
+AccessType=rw
+
+[1842sub4]
+ParameterName=Reserved
+DataType=0x0005
+AccessType=rw
+
+[1842sub5]
+ParameterName=Event timer
+DataType=0x0006
+AccessType=rw
+
+[1842sub6]
+ParameterName=SYNC start value
+DataType=0x0005
+AccessType=rw
+
+[1843]
+SubNumber=3
+ParameterName=TPDO communication parameter
+ObjectType=0x09
+
+[1843sub0]
+ParameterName=Highest sub-index supported
+DataType=0x0005
+AccessType=const
+DefaultValue=0x06
+
+[1843sub1]
+ParameterName=COB-ID used by TPDO
+DataType=0x0007
+AccessType=rw
+DefaultValue=$NODEID+0x480
+
+[1843sub2]
+ParameterName=Transmission type
+DataType=0x0005
+AccessType=rw
+DefaultValue=0x01
+
+[1843sub3]
+ParameterName=Inhibit time
+DataType=0x0006
+AccessType=rw
+
+[1843sub4]
+ParameterName=Reserved
+DataType=0x0005
+AccessType=rw
+
+[1843sub5]
+ParameterName=Event timer
+DataType=0x0006
+AccessType=rw
+
+[1843sub6]
+ParameterName=SYNC start value
+DataType=0x0005
+AccessType=rw
+
+[1A00]
+ParameterName=TPDO mapping parameter
+ObjectType=0x09
+DataType=0x0007
+AccessType=rw
+CompactSubObj=8
+
+[1A00Value]
+NrOfEntries=8
+1=0x60000108
+2=0x60000208
+3=0x60000308
+4=0x60000408
+5=0x60000508
+6=0x60000608
+7=0x60000708
+8=0x60000808
+
+[1A41]
+ParameterName=TPDO mapping parameter
+ObjectType=0x09
+DataType=0x0007
+AccessType=rw
+CompactSubObj=4
+
+[1A41Value]
+NrOfEntries=4
+1=0x6C010110
+2=0x6C010210
+3=0x6C010310
+4=0x6C010410
+
+[1A42]
+ParameterName=TPDO mapping parameter
+ObjectType=0x09
+DataType=0x0007
+AccessType=rw
+CompactSubObj=4
+
+[1A42Value]
+NrOfEntries=4
+1=0x6C010510
+2=0x6C010610
+3=0x6C010710
+4=0x6C010810
+
+[1A43]
+ParameterName=TPDO mapping parameter
+ObjectType=0x09
+DataType=0x0007
+AccessType=rw
+CompactSubObj=4
+
+[1A43Value]
+NrOfEntries=4
+1=0x6C010910
+2=0x6C010A10
+3=0x6C010B10
+4=0x6C010C10
+
+[1F80]
+ParameterName=NMT startup
+DataType=0x0007
+AccessType=rw
+ParameterValue=0x00000004
+
+[6000]
+ParameterName=Read digital input 8-bit
+ObjectType=0x09
+DataType=0x0005
+AccessType=ro
+PDOMapping=1
+CompactSubObj=254
+
+[6200]
+ParameterName=Write digital input 8-bit
+ObjectType=0x09
+DataType=0x0005
+AccessType=rw
+PDOMapping=1
+CompactSubObj=254
+
+[67FF]
+ParameterName=Device type
+DataType=0x0007
+AccessType=ro
+DefaultValue=0x00030191
+
+[6C01]
+ParameterName=Read analog input 16-bit
+ObjectType=0x09
+DataType=0x0003
+AccessType=ro
+PDOMapping=1
+CompactSubObj=254
+
+[6C11]
+ParameterName=Write analog output 16-bit
+ObjectType=0x09
+DataType=0x0003
+AccessType=rw
+PDOMapping=1
+CompactSubObj=254
+
+[6FFF]
+ParameterName=Device type
+DataType=0x0007
+AccessType=ro
+DefaultValue=0x000C0191

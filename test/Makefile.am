@@ -208,9 +208,17 @@ LELY_COAPP_LIBS = $(LELY_IO2_LIBS) $(LELY_CO_LIBS)
 LELY_COAPP_LIBS += $(top_builddir)/src/coapp/liblely-coapp.la
 
 if !NO_CXX
+if !NO_CO_MASTER
+
+bin += test-coapp-401
+test_coapp_401_SOURCES = test.h coapp-401.cpp
+test_coapp_401_LDADD = $(LELY_COAPP_LIBS)
+
 bin += test-coapp-fiber
 test_coapp_fiber_SOURCES = test.h coapp-fiber.cpp
 test_coapp_fiber_LDADD = $(LELY_COAPP_LIBS)
+
+endif
 endif
 
 EXTRA_DIST =
@@ -227,6 +235,8 @@ EXTRA_DIST += co-sdo-client.dcf
 EXTRA_DIST += co-sdo-server.dcf
 EXTRA_DIST += co-sync.dcf
 EXTRA_DIST += co-time.dcf
+EXTRA_DIST += coapp-401-master.dcf
+EXTRA_DIST += coapp-401-slave.dcf
 EXTRA_DIST += coapp-fiber-master.dcf
 EXTRA_DIST += coapp-fiber-slave.dcf
 
