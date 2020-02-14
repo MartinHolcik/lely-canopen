@@ -2,7 +2,7 @@
  * This header file is part of the I/O library; it contains the I/O polling
  * declarations for POSIX platforms.
  *
- * @copyright 2015-2019 Lely Industries N.V.
+ * @copyright 2015-2020 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -100,6 +100,11 @@ io_ctx_t *io_poll_get_ctx(const io_poll_t *poll);
  * instance.
  */
 ev_poll_t *io_poll_get_poll(const io_poll_t *poll);
+
+#ifdef __linux__
+/// Returns the epoll file descriptor used by the I/O polling instance.
+int io_poll_get_fd(const io_poll_t *poll);
+#endif
 
 /**
  * Registers a file descriptor with an I/O polling instance and monitors it for

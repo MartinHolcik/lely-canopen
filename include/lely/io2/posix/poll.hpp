@@ -4,7 +4,7 @@
  *
  * @see lely/io2/posix/poll.h
  *
- * @copyright 2018-2019 Lely Industries N.V.
+ * @copyright 2018-2020 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -75,6 +75,14 @@ class Poll {
   get_poll() const noexcept {
     return ev::Poll(io_poll_get_poll(*this));
   }
+
+#ifdef __linux__
+  /// @see io_poll_get_fd()
+  int
+  get_fd() const noexcept {
+    return io_poll_get_fd(*this);
+  }
+#endif
 
   /// @see io_poll_watch()
   void

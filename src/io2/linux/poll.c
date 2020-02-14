@@ -284,6 +284,14 @@ io_poll_get_poll(const io_poll_t *poll)
 }
 
 int
+io_poll_get_fd(const io_poll_t *poll)
+{
+	assert(poll);
+
+	return poll->epfd;
+}
+
+int
 io_poll_watch(io_poll_t *poll, int fd, int events, struct io_poll_watch *watch)
 {
 	assert(poll);
