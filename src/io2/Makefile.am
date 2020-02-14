@@ -16,6 +16,7 @@ endif
 if PLATFORM_POSIX
 src += posix/fd.c
 src += posix/fd.h
+src += posix/fd_loop.c
 src += posix/io.c
 src += posix/io.h
 if !PLATFORM_LINUX

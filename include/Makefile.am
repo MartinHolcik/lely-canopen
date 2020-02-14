@@ -189,6 +189,10 @@ inc += lely/io2/posix/poll.h
 if !NO_CXX
 inc += lely/io2/posix/poll.hpp
 endif
+inc += lely/io2/posix/fd_loop.h
+if !NO_CXX
+inc += lely/io2/posix/fd_loop.hpp
+endif
 endif
 inc += lely/io2/sys/clock.h
 if !NO_CXX
