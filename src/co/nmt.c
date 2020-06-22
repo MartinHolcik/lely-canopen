@@ -73,6 +73,14 @@
 #endif
 #endif // LELY_NO_MALLOC
 
+#ifndef LELY_CO_NMT_BOOTUP_TIMEOUT
+/**
+ * The timeout (in milliseconds) before trying to send the boot-up message
+ * again.
+ */
+#define LELY_CO_NMT_BOOTUP_TIMEOUT 100
+#endif
+
 struct __co_nmt_state;
 /// An opaque CANopen NMT state type.
 typedef const struct __co_nmt_state co_nmt_state_t;
@@ -145,6 +153,12 @@ struct __co_nmt {
 	/// A flag specifying whether the NMT service is a master or a slave.
 	int master;
 #endif
+	/// The CAN frame sent by #bootup_send.
+	struct can_msg bootup_msg;
+	/// A CAN frame send operation, used to send the boot-up message.
+	struct can_send bootup_send;
+	/// A pointer to the CAN timer for sending the boot-up message.
+	can_timer_t *bootup_timer;
 	/// A pointer to the CAN frame receiver for NMT messages.
 	can_recv_t *recv_000;
 	/// A pointer to the NMT command indication function.
@@ -329,6 +343,19 @@ static co_unsigned32_t co_1f82_dn_ind(
 		co_sub_t *sub, struct co_sdo_req *req, void *data);
 #endif
 
+/**
+ * The completion function invoked when a CAN frame send operation completes (or
+ * is canceled).
+ */
+static void co_nmt_bootup_send(struct can_send *send);
+
+/**
+ * The CAN timer callback function for sending the boot-up message.
+ *
+ * @see can_timer_func_t
+ */
+static int co_nmt_bootup_timer(const struct timespec *tp, void *data);
+
 /// The CAN receive callback function for NMT messages. @see can_recv_func_t
 static int co_nmt_recv_000(const struct can_msg *msg, void *data);
 
@@ -412,6 +439,25 @@ static void co_nmt_tpdo_event_ind(co_unsigned16_t n, void *data);
 static void co_nmt_enter(co_nmt_t *nmt, co_nmt_state_t *next);
 
 /**
+ * Invokes the 'CAN frame send operation completed' transition function of the
+ * current state of an NMT master/slave service.
+ *
+ * @param nmt  a pointer to an NMT master/slave service.
+ * @param errc the error number, obtained as if by get_errc(), if an error
+ *             occurred or the operation was canceled.
+ */
+static inline void co_nmt_emit_send(co_nmt_t *nmt, int errc);
+
+/**
+ * Invokes the 'timeout' transition function of the current state of an NMT
+ * master/slave service.
+ *
+ * @param nmt a pointer to an NMT master/slave service.
+ * @param tp  a pointer to the current time.
+ */
+static inline void co_nmt_emit_time(co_nmt_t *nmt, const struct timespec *tp);
+
+/**
  * Invokes the 'NMT command received' transition function of the current state
  * of an NMT master/slave service.
  *
@@ -440,6 +486,26 @@ static inline void co_nmt_emit_boot(
 struct __co_nmt_state {
 	/// A pointer to the function invoked when a new state is entered.
 	co_nmt_state_t *(*on_enter)(co_nmt_t *nmt);
+	/**
+	 * A pointer to the transition function invoked when a CAN frame send
+	 * operation completes (or is canceled).
+	 *
+	 * @param nmt  a pointer to an NMT master/slave service.
+	 * @param errc the error number, obtained as if by get_errc(), if an
+	 *             error occurred or the operation was canceled.
+	 *
+	 * @returns a pointer to the next state.
+	 */
+	co_nmt_state_t *(*on_send)(co_nmt_t *nmt, int errc);
+	/**
+	 * A pointer to the transition function invoked when a timeout occurs.
+	 *
+	 * @param nmt a pointer to an NMT master/slave service.
+	 * @param tp  a pointer to the current time.
+	 *
+	 * @returns a pointer to the next state.
+	 */
+	co_nmt_state_t *(*on_time)(co_nmt_t *nmt, const struct timespec *tp);
 	/**
 	 * A pointer to the transition function invoked when an NMT command is
 	 * received.
@@ -522,14 +588,30 @@ LELY_CO_DEFINE_STATE(co_nmt_reset_comm_state,
 /// The entry function of the 'boot-up' state.
 static co_nmt_state_t *co_nmt_bootup_on_enter(co_nmt_t *nmt);
 
+/**
+ * The 'CAN frame send operation completed' transition function of the 'boot-up'
+ * state.
+ */
+static co_nmt_state_t *co_nmt_bootup_on_send(co_nmt_t *nmt, int errc);
+
+/// The 'timeout' transition function of the 'boot-up' state.
+static co_nmt_state_t *co_nmt_bootup_on_time(
+		co_nmt_t *nmt, const struct timespec *tp);
+
 /// The 'NMT command received' transition function of the 'boot-up' state.
 static co_nmt_state_t *co_nmt_bootup_on_cs(co_nmt_t *nmt, co_unsigned8_t cs);
+
+/// The exit function of the 'boot-up' state.
+static void co_nmt_bootup_on_leave(co_nmt_t *nmt);
 
 /// The NMT 'boot-up' state.
 // clang-format off
 LELY_CO_DEFINE_STATE(co_nmt_bootup_state,
 	.on_enter = &co_nmt_bootup_on_enter,
-	.on_cs = &co_nmt_bootup_on_cs
+	.on_send = &co_nmt_bootup_on_send,
+	.on_time = &co_nmt_bootup_on_time,
+	.on_cs = &co_nmt_bootup_on_cs,
+	.on_leave = &co_nmt_bootup_on_leave
 )
 // clang-format on
 
@@ -816,6 +898,17 @@ __co_nmt_init(struct __co_nmt *nmt, can_net_t *net, co_dev_t *dev)
 	nmt->master = 0;
 #endif
 
+	nmt->bootup_msg = (struct can_msg)CAN_MSG_INIT;
+	nmt->bootup_send = (struct can_send)CAN_SEND_INIT(
+			&nmt->bootup_msg, &co_nmt_bootup_send);
+
+	nmt->bootup_timer = can_timer_create();
+	if (!nmt->bootup_timer) {
+		errc = get_errc();
+		goto error_create_bootup_timer;
+	}
+	can_timer_set_func(nmt->bootup_timer, &co_nmt_bootup_timer, nmt);
+
 	// Create the CAN frame receiver for NMT messages.
 	nmt->recv_000 = can_recv_create();
 	if (!nmt->recv_000) {
@@ -1041,6 +1134,8 @@ error_create_cs_timer:
 error_create_ec_timer:
 	can_recv_destroy(nmt->recv_700);
 error_create_recv_700:
+	can_timer_destroy(nmt->bootup_timer);
+error_create_bootup_timer:
 	can_recv_destroy(nmt->recv_000);
 error_create_recv_000:
 	co_nmt_srv_fini(&nmt->srv);
@@ -1058,6 +1153,9 @@ void
 __co_nmt_fini(struct __co_nmt *nmt)
 {
 	assert(nmt);
+
+	// Abort any ongoing CAN frame send operation.
+	can_net_abort_send(nmt->net, &nmt->bootup_send);
 
 #ifndef LELY_NO_CO_MASTER
 	// Remove the download indication function for the request NMT value.
@@ -1128,6 +1226,8 @@ __co_nmt_fini(struct __co_nmt *nmt)
 
 	can_timer_destroy(nmt->ec_timer);
 	can_recv_destroy(nmt->recv_700);
+
+	can_timer_destroy(nmt->bootup_timer);
 
 	can_recv_destroy(nmt->recv_000);
 
@@ -2514,6 +2614,27 @@ co_1f82_dn_ind(co_sub_t *sub, struct co_sdo_req *req, void *data)
 }
 #endif // !LELY_NO_CO_MASTER
 
+static void
+co_nmt_bootup_send(struct can_send *send)
+{
+	assert(send);
+	co_nmt_t *nmt = structof(send, co_nmt_t, bootup_send);
+
+	co_nmt_emit_send(nmt, send->errc);
+}
+
+static int
+co_nmt_bootup_timer(const struct timespec *tp, void *data)
+{
+	assert(tp);
+	co_nmt_t *nmt = data;
+	assert(nmt);
+
+	co_nmt_emit_time(nmt, tp);
+
+	return 0;
+}
+
 static int
 co_nmt_recv_000(const struct can_msg *msg, void *data)
 {
@@ -2881,6 +3002,26 @@ co_nmt_enter(co_nmt_t *nmt, co_nmt_state_t *next)
 }
 
 static inline void
+co_nmt_emit_send(co_nmt_t *nmt, int errc)
+{
+	assert(nmt);
+	assert(nmt->state);
+	assert(nmt->state->on_send);
+
+	co_nmt_enter(nmt, nmt->state->on_send(nmt, errc));
+}
+
+static inline void
+co_nmt_emit_time(co_nmt_t *nmt, const struct timespec *tp)
+{
+	assert(nmt);
+	assert(nmt->state);
+	assert(nmt->state->on_time);
+
+	co_nmt_enter(nmt, nmt->state->on_time(nmt, tp));
+}
+
+static inline void
 co_nmt_emit_cs(co_nmt_t *nmt, co_unsigned8_t cs)
 {
 	assert(nmt);
@@ -3060,9 +3201,33 @@ co_nmt_bootup_on_enter(co_nmt_t *nmt)
 {
 	assert(nmt);
 
+	co_unsigned8_t id = co_dev_get_id(nmt->dev);
+
 	// Don't enter the 'pre-operational' state if the node-ID is invalid.
-	if (co_dev_get_id(nmt->dev) == 0xff) {
+	if (id == 0xff) {
 		diag(DIAG_INFO, 0, "NMT: unconfigured node-ID");
+		return NULL;
+	}
+
+	// Create a boot-up signal to notify the master we exist.
+	nmt->bootup_msg = (struct can_msg)CAN_MSG_INIT;
+	nmt->bootup_msg.id = CO_NMT_EC_CANID(id);
+	nmt->bootup_msg.len = 1;
+	nmt->bootup_msg.data[0] = CO_NMT_ST_BOOTUP;
+
+	// Send the (first) boot-up message by simulating a timeout.
+	return co_nmt_bootup_on_time(nmt, NULL);
+}
+
+static co_nmt_state_t *
+co_nmt_bootup_on_send(co_nmt_t *nmt, int errc)
+{
+	assert(nmt);
+
+	if (errc) {
+		// Wait for a while before sending the boot-up message again.
+		can_timer_timeout(nmt->bootup_timer, nmt->net,
+				LELY_CO_NMT_BOOTUP_TIMEOUT);
 		return NULL;
 	}
 
@@ -3072,10 +3237,20 @@ co_nmt_bootup_on_enter(co_nmt_t *nmt)
 	// Enable heartbeat consumption.
 	co_nmt_hb_init(nmt);
 
-	// Send the boot-up signal to notify the master we exist.
-	co_nmt_ec_send_res(nmt, CO_NMT_ST_BOOTUP);
-
 	return co_nmt_preop_state;
+}
+
+static co_nmt_state_t *
+co_nmt_bootup_on_time(co_nmt_t *nmt, const struct timespec *tp)
+{
+	assert(nmt);
+	(void)tp;
+
+	// Send the boot-up message.
+	can_net_submit_send(nmt->net, &nmt->bootup_send);
+
+	// Wait for confirmation that the boot-up message was successfully sent.
+	return NULL;
 }
 
 static co_nmt_state_t *
@@ -3088,6 +3263,17 @@ co_nmt_bootup_on_cs(co_nmt_t *nmt, co_unsigned8_t cs)
 	case CO_NMT_CS_RESET_COMM: return co_nmt_reset_comm_state;
 	default: return NULL;
 	}
+}
+
+static void
+co_nmt_bootup_on_leave(co_nmt_t *nmt)
+{
+	assert(nmt);
+
+	// Abort the send operation, in case it is still pending.
+	can_net_abort_send(nmt->net, &nmt->bootup_send);
+	// Abort the timeout for the send operation.
+	can_timer_stop(nmt->bootup_timer);
 }
 
 static co_nmt_state_t *
