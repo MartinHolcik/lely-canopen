@@ -35,6 +35,7 @@
 #include <lely/util/util.h>
 
 #include <assert.h>
+#include <stdint.h>
 
 #ifndef LELY_IO_CAN_NET_TXLEN
 /**
@@ -52,6 +53,18 @@
 #define LELY_IO_CAN_NET_TXTIMEO 100
 #endif
 
+static void io_can_net_dev_submit_send(can_dev_t *dev, struct can_send *send);
+static int io_can_net_dev_cancel_send(can_dev_t *dev, struct can_send *send);
+static int io_can_net_dev_abort_send(can_dev_t *dev, struct can_send *send);
+
+// clang-format off
+static const struct can_dev_vtbl io_can_net_dev_vtbl = {
+	&io_can_net_dev_submit_send,
+	&io_can_net_dev_cancel_send,
+	&io_can_net_dev_abort_send
+};
+// clang-format on
+
 static void io_can_net_svc_shutdown(struct io_svc *svc);
 
 // clang-format off
@@ -63,11 +76,13 @@ static const struct io_svc_vtbl io_can_net_svc_vtbl = {
 
 /// The implementation of a CAN network interface.
 struct io_can_net {
+	/// A pointer to the virtual table for the CAN device interface.
+	const struct can_dev_vtbl *dev_vptr;
 	/// The I/O service representing the channel.
 	struct io_svc svc;
 	/// A pointer to the I/O context with which the channel is registered.
 	io_ctx_t *ctx;
-	/// A pointer to the executor ...
+	/// A pointer to the executor used to execute all I/O operations.
 	ev_exec_t *exec;
 	/// A pointer to the timer used for CAN network events.
 	io_timer_t *timer;
@@ -171,6 +186,8 @@ struct io_can_net {
 	can_net_t *net;
 	/// The time at which the next CAN timer will trigger.
 	struct timespec next;
+	/// The queue containing pending send operations.
+	struct sllist send_queue;
 };
 
 static void io_can_net_wait_next_func(struct ev_task *task);
@@ -183,12 +200,17 @@ static int io_can_net_send_func(const struct can_msg *msg, void *data);
 
 static void io_can_net_c_wait_func(struct spscring *ring, void *arg);
 
+static inline io_can_net_t *io_can_net_from_dev(const can_dev_t *dev);
 static inline io_can_net_t *io_can_net_from_svc(const struct io_svc *svc);
 
-int io_can_net_do_wait(io_can_net_t *net);
-void io_can_net_do_write(io_can_net_t *net);
+static int io_can_net_do_send(
+		io_can_net_t *net, const struct can_msg *msg, size_t *pidx);
+static int io_can_net_do_wait(io_can_net_t *net);
+static void io_can_net_do_write(io_can_net_t *net);
 
-size_t io_can_net_do_abort_tasks(io_can_net_t *net);
+#if !LELY_NO_THREADS
+static size_t io_can_net_do_abort_tasks(io_can_net_t *net);
+#endif
 
 static void default_on_read_error_func(int errc, size_t errcnt, void *arg);
 static void default_on_queue_error_func(int errc, size_t errcnt, void *arg);
@@ -229,6 +251,8 @@ io_can_net_init(io_can_net_t *net, ev_exec_t *exec, io_timer_t *timer,
 
 	if (!txtimeo)
 		txtimeo = LELY_IO_CAN_NET_TXTIMEO;
+
+	net->dev_vptr = &io_can_net_dev_vtbl;
 
 	net->svc = (struct io_svc)IO_SVC_INIT(&io_can_net_svc_vtbl);
 	net->ctx = io_can_chan_get_ctx(chan);
@@ -304,6 +328,8 @@ io_can_net_init(io_can_net_t *net, ev_exec_t *exec, io_timer_t *timer,
 	}
 	net->next = (struct timespec){ 0, 0 };
 
+	sllist_init(&net->send_queue);
+
 	// Initialize the CAN network clock with the current time.
 	if (io_can_net_set_time(net) == -1) {
 		errc = get_errc();
@@ -316,6 +342,9 @@ io_can_net_init(io_can_net_t *net, ev_exec_t *exec, io_timer_t *timer,
 	// Register the function to be invoked when a CAN frame needs to be
 	// sent.
 	can_net_set_send_func(net->net, &io_can_net_send_func, net);
+
+	// Register the CAN device interface.
+	can_net_set_dev(net->net, &net->dev_vptr);
 
 	io_ctx_insert(net->ctx, &net->svc);
 
@@ -685,6 +714,56 @@ io_can_net_set_time(io_can_net_t *net)
 }
 
 static void
+io_can_net_dev_submit_send(can_dev_t *dev, struct can_send *send)
+{
+	io_can_net_t *net = io_can_net_from_dev(dev);
+	assert(send);
+
+	int errc = get_errc();
+	set_errc(0);
+	size_t i = 0;
+	if (!io_can_net_do_send(net, send->msg, &i)) {
+		set_errc(errc);
+		// Add the operation to the queue and record the index in the
+		// ring buffer. This is used in io_can_net_write_func() to match
+		// CAN frames to send operations.
+		send->_data = (void *)(uintptr_t)i;
+		sllist_push_back(&net->send_queue, &send->_node);
+	} else {
+		send->errc = get_errc();
+		set_errc(errc);
+		// Invoke the confirmation function immediately if an error
+		// occurs.
+		if (send->func)
+			send->func(send);
+	}
+}
+
+static int
+io_can_net_dev_cancel_send(can_dev_t *dev, struct can_send *send)
+{
+	assert(send);
+
+	if (io_can_net_dev_abort_send(dev, send)) {
+		send->errc = errnum2c(ERRNUM_CANCELED);
+		if (send->func)
+			send->func(send);
+		return 1;
+	}
+
+	return 0;
+}
+
+static int
+io_can_net_dev_abort_send(can_dev_t *dev, struct can_send *send)
+{
+	io_can_net_t *net = io_can_net_from_dev(dev);
+	assert(send);
+
+	return sllist_remove(&net->send_queue, &send->_node) != NULL;
+}
+
+static void
 io_can_net_svc_shutdown(struct io_svc *svc)
 {
 	io_can_net_t *net = io_can_net_from_svc(svc);
@@ -834,6 +913,9 @@ io_can_net_write_func(struct ev_task *task)
 	struct io_can_chan_write *write = io_can_chan_write_from_task(task);
 	io_can_net_t *net = structof(write, io_can_net_t, write);
 
+	struct sllist queue;
+	sllist_init(&queue);
+
 #if !LELY_NO_THREADS
 	mtx_lock(&net->mtx);
 #endif
@@ -865,7 +947,27 @@ io_can_net_write_func(struct ev_task *task)
 		// already been accounted for.
 		net->write_errcnt += n - 1;
 	}
-	spscring_c_commit(&net->tx_ring, n);
+	while (n--) {
+		if (sllist_empty(&net->send_queue)) {
+			spscring_c_commit(&net->tx_ring, n + 1);
+			n = 0;
+		} else {
+			size_t size = 1;
+			size_t i = spscring_c_alloc(&net->tx_ring, &size);
+			assert(size == 1);
+			spscring_c_commit(&net->tx_ring, size);
+			// Find the matching send operation, if any, and move it
+			// to the queue of completed operations.
+			struct slnode *node = sllist_first(&net->send_queue);
+			struct can_send *send =
+					structof(node, struct can_send, _node);
+			if (i == (uintptr_t)send->_data) {
+				send->_data = NULL;
+				sllist_pop_front(&net->send_queue);
+				sllist_push_back(&queue, node);
+			}
+		}
+	}
 
 	// Stop the timeout after receiving a write confirmation (or write
 	// error).
@@ -877,6 +979,15 @@ io_can_net_write_func(struct ev_task *task)
 	net->write_submitted = 0;
 	if (!net->shutdown && !io_can_net_do_wait(net))
 		io_can_net_do_write(net);
+
+	// Invoke confirmation functions of completed send operations.
+	struct slnode *node;
+	while ((node = sllist_pop_front(&queue))) {
+		struct can_send *send = structof(node, struct can_send, _node);
+		send->errc = write->errc;
+		if (send->func)
+			send->func(send);
+	}
 
 #if !LELY_NO_THREADS
 	mtx_unlock(&net->mtx);
@@ -917,34 +1028,10 @@ io_can_net_next_func(const struct timespec *tp, void *data)
 static int
 io_can_net_send_func(const struct can_msg *msg, void *data)
 {
-	assert(msg);
 	io_can_net_t *net = data;
 	assert(net);
 
-	size_t n = 1;
-	size_t i = spscring_p_alloc(&net->tx_ring, &n);
-	if (n) {
-		net->tx_buf[i] = *msg;
-		spscring_p_commit(&net->tx_ring, n);
-		if (net->tx_errcnt) {
-			assert(net->on_queue_error_func);
-			net->on_queue_error_func(0, net->tx_errcnt,
-					net->on_queue_error_arg);
-			net->tx_errcnt = 0;
-		}
-		return 0;
-	} else {
-		set_errnum(ERRNUM_AGAIN);
-		net->tx_errcnt += net->tx_errcnt < SIZE_MAX;
-		if (net->tx_errcnt == 1) {
-			// Only invoke the callback for the first transmission
-			// error.
-			assert(net->on_queue_error_func);
-			net->on_queue_error_func(get_errc(), net->tx_errcnt,
-					net->on_queue_error_arg);
-		}
-		return -1;
-	}
+	return io_can_net_do_send(net, msg, NULL);
 }
 
 static void
@@ -960,6 +1047,14 @@ io_can_net_c_wait_func(struct spscring *ring, void *arg)
 }
 
 static inline io_can_net_t *
+io_can_net_from_dev(const can_dev_t *dev)
+{
+	assert(dev);
+
+	return structof(dev, io_can_net_t, dev_vptr);
+}
+
+static inline io_can_net_t *
 io_can_net_from_svc(const struct io_svc *svc)
 {
 	assert(svc);
@@ -967,7 +1062,41 @@ io_can_net_from_svc(const struct io_svc *svc)
 	return structof(svc, io_can_net_t, svc);
 }
 
-int
+static int
+io_can_net_do_send(io_can_net_t *net, const struct can_msg *msg, size_t *pidx)
+{
+	assert(net);
+	assert(msg);
+
+	size_t n = 1;
+	size_t i = spscring_p_alloc(&net->tx_ring, &n);
+	if (n) {
+		net->tx_buf[i] = *msg;
+		spscring_p_commit(&net->tx_ring, n);
+		if (net->tx_errcnt) {
+			assert(net->on_queue_error_func);
+			net->on_queue_error_func(0, net->tx_errcnt,
+					net->on_queue_error_arg);
+			net->tx_errcnt = 0;
+		}
+		if (pidx)
+			*pidx = i;
+		return 0;
+	} else {
+		set_errnum(ERRNUM_AGAIN);
+		net->tx_errcnt += net->tx_errcnt < SIZE_MAX;
+		if (net->tx_errcnt == 1) {
+			// Only invoke the callback for the first transmission
+			// error.
+			assert(net->on_queue_error_func);
+			net->on_queue_error_func(get_errc(), net->tx_errcnt,
+					net->on_queue_error_arg);
+		}
+		return -1;
+	}
+}
+
+static int
 io_can_net_do_wait(io_can_net_t *net)
 {
 	assert(net);
@@ -988,7 +1117,7 @@ io_can_net_do_wait(io_can_net_t *net)
 	return 0;
 }
 
-void
+static void
 io_can_net_do_write(io_can_net_t *net)
 {
 	assert(net);
@@ -1012,7 +1141,8 @@ io_can_net_do_write(io_can_net_t *net)
 	}
 }
 
-size_t
+#if !LELY_NO_THREADS
+static size_t
 io_can_net_do_abort_tasks(io_can_net_t *net)
 {
 	assert(net);
@@ -1045,6 +1175,7 @@ io_can_net_do_abort_tasks(io_can_net_t *net)
 
 	return 0;
 }
+#endif // !LELY_NO_THREADS
 
 static void
 default_on_read_error_func(int errc, size_t errcnt, void *arg)
