@@ -48,6 +48,18 @@ extern "C" {
 #endif
 
 /**
+ * The type of a CAN send callback function, invoked by a CAN network interface
+ * when a frame needs to be sent.
+ *
+ * @param msg  a pointer to the CAN frame to be sent.
+ * @param data a pointer to user-specified data.
+ *
+ * @returns 0 on success, or -1 on error. In the latter case, implementations
+ * SHOULD set the error number with `set_errnum()`.
+ */
+typedef int can_net_send_func_t(const struct can_msg *msg, void *data);
+
+/**
  * The type of a CAN timer callback function, invoked by a CAN timer when the
  * time is updated, or by a CAN network interface when the time at which the
  * next timer triggers is updated.
@@ -71,18 +83,6 @@ typedef int can_timer_func_t(const struct timespec *tp, void *data);
  * SHOULD set the error number with `set_errnum()`.
  */
 typedef int can_recv_func_t(const struct can_msg *msg, void *data);
-
-/**
- * The type of a CAN send callback function, invoked by a CAN network interface
- * when a frame needs to be sent.
- *
- * @param msg  a pointer to the CAN frame to be sent.
- * @param data a pointer to user-specified data.
- *
- * @returns 0 on success, or -1 on error. In the latter case, implementations
- * SHOULD set the error number with `set_errnum()`.
- */
-typedef int can_send_func_t(const struct can_msg *msg, void *data);
 
 void *__can_net_alloc(void);
 void __can_net_free(void *ptr);
@@ -186,8 +186,8 @@ int can_net_send(can_net_t *net, const struct can_msg *msg);
  *
  * @see can_net_set_send_func()
  */
-void can_net_get_send_func(
-		const can_net_t *net, can_send_func_t **pfunc, void **pdata);
+void can_net_get_send_func(const can_net_t *net, can_net_send_func_t **pfunc,
+		void **pdata);
 
 /**
  * Sets the callback function used to send CAN frames from a network interface.
@@ -199,7 +199,8 @@ void can_net_get_send_func(
  *
  * @see can_net_get_send_func()
  */
-void can_net_set_send_func(can_net_t *net, can_send_func_t *func, void *data);
+void can_net_set_send_func(
+		can_net_t *net, can_net_send_func_t *func, void *data);
 
 void *__can_timer_alloc(void);
 void __can_timer_free(void *ptr);

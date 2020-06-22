@@ -51,7 +51,7 @@ TEST(CAN_NetInit, CanNetInit) {
   POINTERS_EQUAL(nullptr, tfunc);
   POINTERS_EQUAL(nullptr, tdata);
 
-  can_send_func_t* sfunc = nullptr;
+  can_net_send_func_t* sfunc = nullptr;
   void* sdata = nullptr;
   can_net_get_send_func(net, &sfunc, &sdata);
   POINTERS_EQUAL(nullptr, sfunc);
@@ -411,7 +411,7 @@ TEST(CAN_Net, CanNetSetSendFunc) {
 
   can_net_set_send_func(net, send_func_empty, &data);
 
-  can_send_func_t* out_ptr = nullptr;
+  can_net_send_func_t* out_ptr = nullptr;
   void* out_data = nullptr;
   can_net_get_send_func(net, &out_ptr, &out_data);
 

@@ -133,26 +133,26 @@ class CANNet : public incomplete_c_type<__can_net> {
   }
 
   void
-  getSendFunc(can_send_func_t** pfunc, void** pdata) const noexcept {
+  getSendFunc(can_net_send_func_t** pfunc, void** pdata) const noexcept {
     can_net_get_send_func(this, pfunc, pdata);
   }
 
   void
-  setSendFunc(can_send_func_t* func, void* data) noexcept {
+  setSendFunc(can_net_send_func_t* func, void* data) noexcept {
     can_net_set_send_func(this, func, data);
   }
 
   template <class F>
   void
   setSendFunc(F* f) noexcept {
-    setSendFunc(&c_obj_call<can_send_func_t*, F>::function,
+    setSendFunc(&c_obj_call<can_net_send_func_t*, F>::function,
                 static_cast<void*>(f));
   }
 
-  template <class C, typename c_mem_fn<can_send_func_t*, C>::type M>
+  template <class C, typename c_mem_fn<can_net_send_func_t*, C>::type M>
   void
   setSendFunc(C* obj) noexcept {
-    setSendFunc(&c_mem_call<can_send_func_t*, C, M>::function,
+    setSendFunc(&c_mem_call<can_net_send_func_t*, C, M>::function,
                 static_cast<void*>(obj));
   }
 

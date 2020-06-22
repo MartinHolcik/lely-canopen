@@ -4,7 +4,7 @@
  *
  * @see lely/can/net.h
  *
- * @copyright 2015-2019 Lely Industries N.V.
+ * @copyright 2015-2020 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -48,7 +48,7 @@ struct __can_net {
 	/// The tree containing all receivers.
 	struct rbtree recv_tree;
 	/// A pointer to the callback function invoked by can_net_send().
-	can_send_func_t *send_func;
+	can_net_send_func_t *send_func;
 	/// A pointer to the user-specified data for #send_func.
 	void *send_data;
 };
@@ -320,7 +320,7 @@ can_net_send(can_net_t *net, const struct can_msg *msg)
 
 void
 can_net_get_send_func(
-		const can_net_t *net, can_send_func_t **pfunc, void **pdata)
+		const can_net_t *net, can_net_send_func_t **pfunc, void **pdata)
 {
 	assert(net);
 
@@ -331,7 +331,7 @@ can_net_get_send_func(
 }
 
 void
-can_net_set_send_func(can_net_t *net, can_send_func_t *func, void *data)
+can_net_set_send_func(can_net_t *net, can_net_send_func_t *func, void *data)
 {
 	assert(net);
 
