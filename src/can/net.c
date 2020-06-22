@@ -51,6 +51,7 @@ struct __can_net {
 	can_net_send_func_t *send_func;
 	/// A pointer to the user-specified data for #send_func.
 	void *send_data;
+	can_dev_t *dev;
 };
 
 /**
@@ -146,6 +147,8 @@ __can_net_init(struct __can_net *net)
 
 	net->send_func = NULL;
 	net->send_data = NULL;
+
+	net->dev = NULL;
 
 	return net;
 }
@@ -337,6 +340,57 @@ can_net_set_send_func(can_net_t *net, can_net_send_func_t *func, void *data)
 
 	net->send_func = func;
 	net->send_data = data;
+}
+
+void
+can_net_submit_send(can_net_t *net, struct can_send *send)
+{
+	assert(net);
+	assert(send);
+
+	if (net->dev) {
+		can_dev_submit_send(net->dev, send);
+	} else {
+		int errc = get_errc();
+		set_errc(0);
+		send->errc = !can_net_send(net, send->msg) ? 0 : get_errc();
+		set_errc(errc);
+
+		if (send->func)
+			send->func(send);
+	}
+}
+
+int
+can_net_cancel_send(can_net_t *net, struct can_send *send)
+{
+	assert(net);
+
+	return net->dev ? can_dev_cancel_send(net->dev, send) : 0;
+}
+
+int
+can_net_abort_send(can_net_t *net, struct can_send *send)
+{
+	assert(net);
+
+	return net->dev ? can_dev_abort_send(net->dev, send) : 0;
+}
+
+can_dev_t *
+can_net_get_dev(const can_net_t *net)
+{
+	assert(net);
+
+	return net->dev;
+}
+
+void
+can_net_set_dev(can_net_t *net, can_dev_t *dev)
+{
+	assert(net);
+
+	net->dev = dev;
 }
 
 void *

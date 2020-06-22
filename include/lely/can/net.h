@@ -24,6 +24,16 @@
 
 #include <lely/can/msg.h>
 #include <lely/libc/time.h>
+#include <lely/util/sllist.h>
+
+/**
+ * An abstract CAN device. Such a device can used by a CAN network interface for
+ * asynchronous send operations where the user requires confirmation of the
+ * result (such as a CANopen boot-up message).
+ */
+typedef const struct can_dev_vtbl *const can_dev_t;
+
+struct can_send;
 
 struct __can_net;
 #if !defined(__cplusplus) || LELY_NO_CXX
@@ -46,6 +56,53 @@ typedef struct __can_recv can_recv_t;
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct can_dev_vtbl {
+	void (*submit_send)(can_dev_t *dev, struct can_send *send);
+	int (*cancel_send)(can_dev_t *dev, struct can_send *send);
+	int (*abort_send)(can_dev_t *dev, struct can_send *send);
+};
+
+/**
+ * The type of function invoked when a CAN frame send operation completes (or is
+ * canceled).
+ */
+typedef void can_send_func_t(struct can_send *send);
+
+/**
+ * A CAN frame send operation. Operations can be submitted with
+ * can_net_submit_send(). Additional data can be associated with an operation by
+ * embedding it in a struct and using structof() from the completion function to
+ * obtain a pointer to the struct.
+ */
+struct can_send {
+	/**
+	 * A pointer to the CAN frame to be sent. It is the responsibility of
+	 * the user to ensure the buffer remains valid until the send operation
+	 * completes.
+	 */
+	const struct can_msg *msg;
+	/**
+	 * A pointer to the function to be invoked upon completion (or
+	 * cancellation) of the send operation.
+	 */
+	can_send_func_t *func;
+	/**
+	 * The error number, obtained as if by get_errc(), if an error occurred
+	 * or the operation was canceled.
+	 */
+	int errc;
+	/// The node of this operation in a queue.
+	struct slnode _node;
+	// A pointer used to store additional data during the operation.
+	void *_data;
+};
+
+/// The static initializer for #can_send.
+#define CAN_SEND_INIT(msg, func) \
+	{ \
+		(msg), (func), 0, SLNODE_INIT, NULL \
+	}
 
 /**
  * The type of a CAN timer callback function, invoked by a CAN network interface
@@ -94,6 +151,29 @@ typedef int can_timer_func_t(const struct timespec *tp, void *data);
  * SHOULD set the error number with `set_errnum()`.
  */
 typedef int can_recv_func_t(const struct can_msg *msg, void *data);
+
+/**
+ * Submits the specified CAN frame send operation. The completion function is
+ * invoked once the CAN frame is sent or an error occurs.
+ */
+static inline void can_dev_submit_send(can_dev_t *dev, struct can_send *send);
+
+/**
+ * Cancels the specified CAN frame send operation if it is pending. If canceled,
+ * the completion function is invoked with
+ * <b>errc</b> = #errnum2c(#ERRNUM_CANCELED).
+ *
+ * @returns 1 if the operation was canceled, and 0 if it was not pending.
+ */
+static inline int can_dev_cancel_send(can_dev_t *dev, struct can_send *send);
+
+/**
+ * Aborts the specified CAN frame send operation if it is pending. If aborted,
+ * the completion function is _not_ invoked.
+ *
+ * @returns 1 if the operation was aborted, and 0 if it was not pending.
+ */
+static inline int can_dev_abort_send(can_dev_t *dev, struct can_send *send);
 
 void *__can_net_alloc(void);
 void __can_net_free(void *ptr);
@@ -213,6 +293,57 @@ void can_net_get_send_func(const can_net_t *net, can_net_send_func_t **pfunc,
  */
 void can_net_set_send_func(
 		can_net_t *net, can_net_send_func_t *func, void *data);
+
+/**
+ * Submits the specified CAN frame send operation to a network. The completion
+ * function is invoked once the CAN frame is sent or an error occurs. If no CAN
+ * device has been configured, the CAN frame is sent synchronously with
+ * `can_net_send()` and the completion function is invoked before this function
+ * returns.
+ *
+ * @see can_dev_submit_send()
+ */
+void can_net_submit_send(can_net_t *net, struct can_send *send);
+
+/**
+ * Cancels the specified CAN frame send operation if it is pending. If canceled,
+ * the completion function is invoked with
+ * <b>errc</b> = #errnum2c(#ERRNUM_CANCELED). If no CAN device has been
+ * configured, this function has no effect.
+ *
+ * @returns 1 if the operation was canceled, and 0 if it was not pending.
+ *
+ * @see can_dev_cancel_send()
+ */
+int can_net_cancel_send(can_net_t *net, struct can_send *send);
+
+/**
+ * Aborts the specified CAN frame send operation if it is pending. If aborted,
+ * the completion function is _not_ invoked. If no CAN device has been
+ * configured, this function has no effect.
+ *
+ * @returns 1 if the operation was aborted, and 0 if it was not pending.
+ *
+ * @see can_dev_abort_send()
+ */
+int can_net_abort_send(can_net_t *net, struct can_send *send);
+
+/**
+ * Returns the CAN device used to send CAN frames asynchronously from a network
+ * interface.
+ *
+ * @see can_net_set_dev()
+ */
+can_dev_t *can_net_get_dev(const can_net_t *net);
+
+/**
+ * Sets the CAN device used to send CAN frames asynchronously from a network
+ * interface. If <b>dev</b> is NULL, send operations are completed synchronously
+ * with can_net_send().
+ *
+ * @see can_net_set_dev()
+ */
+void can_net_set_dev(can_net_t *net, can_dev_t *dev);
 
 void *__can_timer_alloc(void);
 void __can_timer_free(void *ptr);
@@ -349,6 +480,24 @@ void can_recv_start(can_recv_t *recv, can_net_t *net, uint_least32_t id,
  * @see can_recv_start()
  */
 void can_recv_stop(can_recv_t *recv);
+
+static inline void
+can_dev_submit_send(can_dev_t *dev, struct can_send *send)
+{
+	(*dev)->submit_send(dev, send);
+}
+
+static inline int
+can_dev_cancel_send(can_dev_t *dev, struct can_send *send)
+{
+	return (*dev)->cancel_send(dev, send);
+}
+
+static inline int
+can_dev_abort_send(can_dev_t *dev, struct can_send *send)
+{
+	return (*dev)->abort_send(dev, send);
+}
 
 #ifdef __cplusplus
 }

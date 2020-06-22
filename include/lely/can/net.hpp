@@ -156,6 +156,31 @@ class CANNet : public incomplete_c_type<__can_net> {
                 static_cast<void*>(obj));
   }
 
+  void
+  submitSend(can_send& send) {
+    can_net_submit_send(this, &send);
+  }
+
+  bool
+  cancelSend(can_send& send) {
+    return can_net_cancel_send(this, &send) != 0;
+  }
+
+  bool
+  abortSend(can_send& send) {
+    return can_net_abort_send(this, &send) != 0;
+  }
+
+  can_dev_t*
+  getDev() const {
+    return can_net_get_dev(this);
+  }
+
+  void
+  setDev(can_dev_t* dev) {
+    can_net_set_dev(this, dev);
+  }
+
  protected:
   ~CANNet() = default;
 };
