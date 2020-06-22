@@ -42,7 +42,7 @@ struct __can_net {
 	/// The time at which the next timer triggers.
 	struct timespec next;
 	/// A pointer to the callback function invoked by can_net_set_next().
-	can_timer_func_t *next_func;
+	can_net_next_func_t *next_func;
 	/// A pointer to user-specified data for #next_func.
 	void *next_data;
 	/// The tree containing all receivers.
@@ -255,7 +255,7 @@ can_net_set_time(can_net_t *net, const struct timespec *tp)
 
 void
 can_net_get_next_func(
-		const can_net_t *net, can_timer_func_t **pfunc, void **pdata)
+		const can_net_t *net, can_net_next_func_t **pfunc, void **pdata)
 {
 	assert(net);
 
@@ -266,7 +266,7 @@ can_net_get_next_func(
 }
 
 void
-can_net_set_next_func(can_net_t *net, can_timer_func_t *func, void *data)
+can_net_set_next_func(can_net_t *net, can_net_next_func_t *func, void *data)
 {
 	assert(net);
 

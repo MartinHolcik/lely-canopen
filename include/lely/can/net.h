@@ -48,6 +48,18 @@ extern "C" {
 #endif
 
 /**
+ * The type of a CAN timer callback function, invoked by a CAN network interface
+ * when the time at which the next timer triggers is updated.
+ *
+ * @param tp   a pointer to the current time.
+ * @param data a pointer to user-specified data.
+ *
+ * @returns 0 on success, or -1 on error. In the latter case, implementations
+ * SHOULD set the error number with `set_errnum()`.
+ */
+typedef int can_net_next_func_t(const struct timespec *tp, void *data);
+
+/**
  * The type of a CAN send callback function, invoked by a CAN network interface
  * when a frame needs to be sent.
  *
@@ -61,8 +73,7 @@ typedef int can_net_send_func_t(const struct can_msg *msg, void *data);
 
 /**
  * The type of a CAN timer callback function, invoked by a CAN timer when the
- * time is updated, or by a CAN network interface when the time at which the
- * next timer triggers is updated.
+ * time is updated.
  *
  * @param tp   a pointer to the current time.
  * @param data a pointer to user-specified data.
@@ -132,21 +143,22 @@ int can_net_set_time(can_net_t *net, const struct timespec *tp);
  *
  * @see can_net_set_next_func()
  */
-void can_net_get_next_func(
-		const can_net_t *net, can_timer_func_t **pfunc, void **pdata);
+void can_net_get_next_func(const can_net_t *net, can_net_next_func_t **pfunc,
+		void **pdata);
 
 /**
  * Sets the callback function invoked when the time at which the next CAN timer
  * triggers is updated.
  *
  * @param net  a pointer to a CAN network interface.
- * @param func a pointer to the function to be invoked by can_net_send().
+ * @param func a pointer to the function to be invoked.
  * @param data a pointer to user-specified data (can be NULL). <b>data</b> is
  *             passed as the last parameter to <b>func</b>.
  *
  * @see can_net_get_next_func()
  */
-void can_net_set_next_func(can_net_t *net, can_timer_func_t *func, void *data);
+void can_net_set_next_func(
+		can_net_t *net, can_net_next_func_t *func, void *data);
 
 /**
  * Receives a CAN frame with a network interface and processes it with the

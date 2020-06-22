@@ -99,26 +99,26 @@ class CANNet : public incomplete_c_type<__can_net> {
   }
 
   void
-  getNextFunc(can_timer_func_t** pfunc, void** pdata) const noexcept {
+  getNextFunc(can_net_next_func_t** pfunc, void** pdata) const noexcept {
     can_net_get_next_func(this, pfunc, pdata);
   }
 
   void
-  setNextFunc(can_timer_func_t* func, void* data) noexcept {
+  setNextFunc(can_net_next_func_t* func, void* data) noexcept {
     can_net_set_next_func(this, func, data);
   }
 
   template <class F>
   void
   setNextFunc(F* f) noexcept {
-    setNextFunc(&c_obj_call<can_timer_func_t*, F>::function,
+    setNextFunc(&c_obj_call<can_net_next_func_t*, F>::function,
                 static_cast<void*>(f));
   }
 
-  template <class C, typename c_mem_fn<can_timer_func_t*, C>::type M>
+  template <class C, typename c_mem_fn<can_net_next_func_t*, C>::type M>
   void
   setNextFunc(C* obj) noexcept {
-    setNextFunc(&c_mem_call<can_timer_func_t*, C, M>::function,
+    setNextFunc(&c_mem_call<can_net_next_func_t*, C, M>::function,
                 static_cast<void*>(obj));
   }
 
