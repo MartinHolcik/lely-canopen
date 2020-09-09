@@ -28,6 +28,14 @@ test_util_config_SOURCES = test.h util-config.c
 test_util_config_LDADD = $(LELY_UTIL_LIBS)
 endif
 
+if !ECSS_COMPLIANCE
+if !NO_CXX
+bin += test-util-coro
+test_util_coro_SOURCES = test.h util-coro.cpp
+test_util_coro_LDADD = $(LELY_UTIL_LIBS)
+endif
+endif
+
 bin += test-util-endian
 test_util_endian_SOURCES = test.h util-endian.c
 test_util_endian_LDADD = $(LELY_UTIL_LIBS)
