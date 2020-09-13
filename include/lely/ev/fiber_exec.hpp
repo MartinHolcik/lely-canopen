@@ -35,8 +35,6 @@
 namespace lely {
 namespace ev {
 
-using FiberFlag = util::FiberFlag;
-
 /**
  * Convenience class providing a RAII-style mechanism to ensure the calling
  * thread can be used by fiber executors for the duration of a scoped block.
@@ -47,24 +45,16 @@ class FiberThread {
    * Initializes the calling thread for use by fiber executors, if it was not
    * already initialized.
    *
-   * @param flags      the flags used to initialize the internal fiber of the
-   *                   calling thread (see #lely::util::FiberThread) and any
-   *                   subsequent fibers created by a fiber executor.
-   *                   <b>flags</b> can be any supported combination of
-   *                   FiberFlag::SAVE_MASK, FiberFlag::SAVE_FENV,
-   *                   FiberFlag::SAVE_ERROR and FiberFlag::GUARD_STACK.
-   * @param stack_size the size (in bytes) of the stack frame to be allocated
-   *                   for the fibers. If 0, the default size
-   *                   (#LELY_FIBER_STKSZ) is used. The size of the allocated
-   *                   stack is always at least #LELY_FIBER_MINSTKSZ bytes.
-   * @param max_unused the maximum number of unused fibers kept alive for future
-   *                   tasks. If 0, the default number
+   * @param attr       the attribues used to initialize the internal fiber of
+   *                   the calling thread and any subsequent fibers created by a
+   *                   fiber executor.
+   * @param max_unused the maximum number of unused coroutines kept alive for
+   *                   future tasks. If 0, the default number
    *                   (#LELY_EV_FIBER_MAX_UNUSED) is used.
    */
-  FiberThread(FiberFlag flags = static_cast<FiberFlag>(0),
-              ::std::size_t stack_size = 0, ::std::size_t max_unused = 0) {
-    if (ev_fiber_thrd_init(static_cast<int>(flags), stack_size, max_unused) ==
-        -1)
+  FiberThread(const fiber_attr& attr = FIBER_ATTR_INIT,
+              ::std::size_t max_unused = 0) {
+    if (ev_fiber_thrd_init(&attr, max_unused) == -1)
       util::throw_errc("FiberThread");
   }
 
@@ -72,16 +62,9 @@ class FiberThread {
    * Initializes the calling thread for use by fiber executors, if it was not
    * already initialized.
    *
-   * @param flags      the flags used to initialize the internal fiber of the
-   *                   calling thread (see #lely::util::FiberThread) and any
-   *                   subsequent fibers created by a fiber executor.
-   *                   <b>flags</b> can be any supported combination of
-   *                   FiberFlag::SAVE_MASK, FiberFlag::SAVE_FENV,
-   *                   FiberFlag::SAVE_ERROR and FiberFlag::GUARD_STACK.
-   * @param stack_size the size (in bytes) of the stack frame to be allocated
-   *                   for the fibers. If 0, the default size
-   *                   (#LELY_FIBER_STKSZ) is used. The size of the allocated
-   *                   stack is always at least #LELY_FIBER_MINSTKSZ bytes.
+   * @param attr       the attribues used to initialize the internal fiber of
+   *                   the calling thread and any subsequent fibers created by a
+   *                   fiber executor.
    * @param max_unused the maximum number of unused coroutines kept alive for
    *                   future tasks. If 0, the default number
    *                   (#LELY_EV_FIBER_MAX_UNUSED) is used.
@@ -90,10 +73,8 @@ class FiberThread {
    *                   values of <b>flags</b>, <b>stack_size</b> and
    *                   <b>unused</b> are ignored.
    */
-  FiberThread(FiberFlag flags, ::std::size_t stack_size,
-              ::std::size_t max_unused, bool& already) {
-    int result =
-        ev_fiber_thrd_init(static_cast<int>(flags), stack_size, max_unused);
+  FiberThread(const fiber_attr& attr, ::std::size_t max_unused, bool& already) {
+    int result = ev_fiber_thrd_init(&attr, max_unused);
     if (result == -1) util::throw_errc("FiberThread");
     already = result != 0;
   }

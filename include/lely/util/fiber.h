@@ -37,52 +37,77 @@
 
 #include <stddef.h>
 
+/// Fiber attributes.
+struct fiber_attr {
+	/**
+	 * A flag specifying a fiber to save and restore the signal mask (only
+	 * supported on POSIX platforms).
+	 */
+	unsigned save_mask : 1;
+	/**
+	 * A flag specifying a fiber to save and restore the floating-point
+	 * environment.
+	 */
+	unsigned save_fenv : 1;
+	/**
+	 * A flag specifying a fiber to save and restore the error values (i.e.,
+	 * errno and GetLastError() on Windows).
+	 */
+	unsigned save_error : 1;
+	/**
+	 * A flag specifying a fiber to add a guard page when allocating the
+	 * stack frame so that the kernel generates a SIGSEGV signal on stack
+	 * overflow (only supported on those POSIX platforms where mmap()
+	 * supports anonymous mappings). This flag cannot be used with a
+	 * pre-allocated stack, nor with fiber_thrd_init(), since a thread
+	 * already has a stack.
+	 */
+	unsigned guard_stack : 1;
+	/**
+	 * The size (in bytes) of the data region of a fiber. If not 0, and if
+	 * #data_addr is NULL, the data region will be allocated on fiber
+	 * creation.
+	 */
+	size_t data_size;
+	/**
+	 * A pointer to the first byte of the data region of a fiber. If NULL,
+	 * and if #data_size is not 0, a date region will be allocated on fiber
+	 * creation.
+	 */
+	void *data_addr;
+	/**
+	 * The size (in bytes) of the stack frame of a fiber. If #stack_addr is
+	 * NULL, a stack frame will be allocated on fiber creation. The size of
+	 * the allocated stack is always at least #LELY_FIBER_MINSTKSZ bytes. If
+	 * <b>stack_size</b> is 0, the default size (#LELY_FIBER_STKSZ) is used.
+	 */
+	size_t stack_size;
+#if !_WIN32
+	/**
+	 * A pointer to the first byte of a memory region to be used as the
+	 * stack frame for a fiber. If NULL, a stack frame will be allocated on
+	 * fiber creation. If not NULL, it is the responsibility of the caller
+	 * to ensure proper alignment.
+	 */
+	void *stack_addr;
+#endif
+};
+
+/// The static initializer for #fiber_attr.
+#if _WIN32
+#define FIBER_ATTR_INIT \
+	{ \
+		0, 0, 0, 0, 0, NULL, 0 \
+	}
+#else
+#define FIBER_ATTR_INIT \
+	{ \
+		0, 0, 0, 0, 0, NULL, 0, NULL \
+	}
+#endif
+
 /// The opaque fiber data type.
 typedef struct fiber fiber_t;
-
-/**
- * A flag specifying a fiber to save and restore the signal mask (only supported
- * on POSIX platforms).
- */
-#define FIBER_SAVE_MASK 0x1
-
-/**
- * A flag specifying a fiber to save and restore the floating-point environment.
- */
-#define FIBER_SAVE_FENV 0x2
-
-/**
- * A flag specifying a fiber to save and restore the error values (i.e., errno
- * and GetLastError() on Windows).
- */
-#define FIBER_SAVE_ERROR 0x4
-
-/**
- * A combination of those flags in #FIBER_SAVE_MASK, #FIBER_SAVE_FENV and
- * #FIBER_SAVE_ERROR that are supported on the platform.
- */
-#if _POSIX_C_SOURCE >= 200112L
-#if !_WIN32 && defined(__NEWLIB__)
-#define FIBER_SAVE_ALL (FIBER_SAVE_MASK | FIBER_SAVE_ERROR)
-#else
-#define FIBER_SAVE_ALL (FIBER_SAVE_MASK | FIBER_SAVE_FENV | FIBER_SAVE_ERROR)
-#endif
-#else
-#if !_WIN32 && defined(__NEWLIB__)
-#define FIBER_SAVE_ALL FIBER_SAVE_ERROR
-#else
-#define FIBER_SAVE_ALL (FIBER_SAVE_FENV | FIBER_SAVE_ERROR)
-#endif
-#endif
-
-/**
- * A flag specifying a fiber to add a guard page when allocating the stack frame
- * so that the kernel generates a SIGSEGV signal on stack overflow (only
- * supported on those POSIX platforms where mmap() supports anonymous mappings).
- * This flag is not supported by fiber_thrd_init(), since a thread already has a
- * stack.
- */
-#define FIBER_GUARD_STACK 0x8
 
 #ifdef __cplusplus
 extern "C" {
@@ -111,9 +136,9 @@ typedef fiber_t *fiber_func_t(fiber_t *fiber, void *arg);
  * called from within a valid fiber. This function can be invoked more than once
  * by the same thread. Only the first invocation initializes the fiber.
  *
- * @param flags any supported combination of #FIBER_SAVE_MASK, #FIBER_SAVE_FENV
- *              and #FIBER_SAVE_ERROR. If the calling thread already has an
- *              associated fiber, this parameter is ignored.
+ * @param attr a pointer to the fiber attributes. If <b>attr</b> is NULL, the
+ *             default attributes are used. Attributes relating to the data
+ *             region and stack are ignored.
  *
  * @returns 1 if a fiber already is associated with the calling thread, 0 if it
  * has been successfully initialized, or -1 on error. In the latter case, the
@@ -121,7 +146,7 @@ typedef fiber_t *fiber_func_t(fiber_t *fiber, void *arg);
  *
  * @see fiber_thrd_fini()
  */
-int fiber_thrd_init(int flags);
+int fiber_thrd_init(const struct fiber_attr *attr);
 
 /**
  * Finalizes the fiber associated with the calling thread. This function MUST be
@@ -137,22 +162,16 @@ void fiber_thrd_fini(void);
  * begin executing the specified function. The function is not executed until
  * the fiber is resumed with fiber_resume() or fiber_resume_with().
  *
- * @param func       the function to be executed by the fiber (can be NULL).
- * @param arg        the second argument supplied to <b>func</b>.
- * @param flags      any supported combination of #FIBER_SAVE_MASK,
- *                   #FIBER_SAVE_FENV, #FIBER_SAVE_ERROR and #FIBER_GUARD_STACK.
- * @param data_size  the size of the data region to be allocated for the fiber.
- *                   A pointer to this region can be obtained with fiber_data().
- * @param stack_size the size (in bytes) of the stack frame to be allocated for
- *                   the fiber. If 0, the default size (#LELY_FIBER_STKSZ)
- *                   is used. The size of the allocated stack is always at least
- *                   #LELY_FIBER_MINSTKSZ bytes.
+ * @param attr a pointer to the fiber attributes. If <b>attr</b> is NULL, the
+ *             default attributes are used.
+ * @param func the function to be executed by the fiber (can be NULL).
+ * @param arg  the second argument supplied to <b>func</b>.
  *
  * @returns a pointer to the new fiber, or NULL on error. In the latter case,
  * the error number can be obtained with get_errc().
  */
-fiber_t *fiber_create(fiber_func_t *func, void *arg, int flags,
-		size_t data_size, size_t stack_size);
+fiber_t *fiber_create(
+		const struct fiber_attr *attr, fiber_func_t *func, void *arg);
 
 /**
  * Destroys the specified fiber. If <b>fiber</b> is NULL or points to the fiber
@@ -162,9 +181,17 @@ fiber_t *fiber_create(fiber_func_t *func, void *arg, int flags,
 void fiber_destroy(fiber_t *fiber);
 
 /**
+ * Copies the attributes of the specified fiber to <b>pattr</b>, or of the
+ * calling fiber if <b>fiber</b> is NULL.
+ */
+void fiber_get_attr(fiber_t *fiber, struct fiber_attr *pattr);
+
+/**
  * Returns a pointer to the data region of the specified fiber, or of the
- * calling fiber if <b>fiber</b> is NULL. If <b>fiber</b> points to the fiber
- * associated with the calling thread, this function returns NULL.
+ * calling fiber if <b>fiber</b> is NULL. The address is obtained from the
+ * <b>data_addr</b> member of the fiber attributes.
+ *
+ * @see fiber_get_attr()
  */
 void *fiber_data(const fiber_t *fiber);
 

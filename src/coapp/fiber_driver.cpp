@@ -34,15 +34,16 @@ namespace canopen {
 
 namespace detail {
 
-FiberDriverBase::FiberDriverBase(ev_exec_t* exec_)
-#if !_WIN32 && _POSIX_MAPPED_FILES
-    : thrd(ev::FiberFlag::SAVE_ERROR | ev::FiberFlag::GUARD_STACK),
+#if _WIN32
+constexpr const fiber_attr attr = {0, 0, 1, 0, 0, nullptr, 0};
+#elif _POSIX_MAPPED_FILES
+constexpr const fiber_attr attr = {0, 0, 1, 1, 0, nullptr, 0, nullptr};
 #else
-    : thrd(ev::FiberFlag::SAVE_ERROR),
+constexpr const fiber_attr attr = {0, 0, 1, 0, 0, nullptr, 0, nullptr};
 #endif
-      exec(exec_),
-      strand(exec) {
-}
+
+FiberDriverBase::FiberDriverBase(ev_exec_t* exec_)
+    : thrd(attr), exec(exec_), strand(exec) {}
 
 }  // namespace detail
 

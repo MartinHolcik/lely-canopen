@@ -103,15 +103,10 @@ extern "C" {
  * This function can be invoked more than once by the same thread. Only the
  * first invocation initializes the thread.
  *
- * @param flags      the flags used to initialize the internal fiber of the
- *                   calling thread (see fiber_thrd_init()) and any subsequent
- *                   fibers created by a fiber executor. <b>flags</b> can be any
- *                   supported combination of #FIBER_SAVE_MASK,
- *                   #FIBER_SAVE_FENV, #FIBER_SAVE_ERROR and #FIBER_GUARD_STACK.
- * @param stack_size the size (in bytes) of the stack frame to be allocated for
- *                   the fibers. If 0, the default size (#LELY_FIBER_STKSZ) is
- *                   used. The size of the allocated stack is always at least
- *                   #LELY_FIBER_MINSTKSZ bytes.
+ * @param attr       a pointer to the attribues used to initialize the internal
+ *                   fiber of the calling thread (see fiber_thrd_init()) and any
+ *                   subsequent fibers created by a fiber executor. If
+ *                   <b>attr</b> is is NULL, the default attributes are used.
  * @param max_unused the maximum number of unused fibers kept alive for future
  *                   tasks. If 0, the default number (#LELY_EV_FIBER_MAX_UNUSED)
  *                   used.
@@ -120,7 +115,7 @@ extern "C" {
  * successfully initialized, or -1 on error. In the latter case, the error
  * number can be obtained with get_errc().
  */
-int ev_fiber_thrd_init(int flags, size_t stack_size, size_t max_unused);
+int ev_fiber_thrd_init(const struct fiber_attr *attr, size_t max_unused);
 
 /**
  * Finalizes the calling thread and prevents further use by fiber executors.

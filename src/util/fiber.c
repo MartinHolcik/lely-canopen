@@ -127,14 +127,12 @@ struct fiber_thrd;
 
 /// A fiber.
 struct fiber {
+	/// The fiber attributes.
+	struct fiber_attr attr;
 	/// A pointer to the function to be executed in the fiber.
 	fiber_func_t *func;
 	/// The second argument supplied to #func.
 	void *arg;
-	/// The flags provided to fiber_create().
-	int flags;
-	/// A pointer to the data region.
-	void *data;
 	/// A pointer to the thread that resumed this fiber.
 	struct fiber_thrd *thr;
 	/// A pointer to the now suspended fiber that resumed this fiber.
@@ -143,15 +141,6 @@ struct fiber {
 	/// A address of the native Windows fiber.
 	LPVOID lpFiber;
 #else
-#if _POSIX_MAPPED_FILES && defined(MAP_ANONYMOUS)
-	/// The size of the mapping at #stack_addr, excluding the guard pages.
-	size_t stack_size;
-	/**
-	 * The address of the anonymous private mapping used for the stack,
-	 * excluding the guard pages.
-	 */
-	void *stack_addr;
-#endif
 #if LELY_HAVE_VALGRIND
 	/// The Valgrind stack id for the fiber stack.
 	unsigned id;
@@ -206,30 +195,49 @@ static _Noreturn void fiber_start(void *arg);
 #endif
 
 int
-fiber_thrd_init(int flags)
+fiber_thrd_init(const struct fiber_attr *attr)
 {
 	struct fiber_thrd *thr = &fiber_thrd;
-	assert(!thr->curr || thr->curr == &thr->main);
+	assert(thr->refcnt || !thr->curr || thr->curr == &thr->main);
 
-	if (flags & ~FIBER_SAVE_ALL) {
+	struct fiber_attr attr_ = FIBER_ATTR_INIT;
+	if (attr) {
+		attr_.save_mask = attr->save_mask;
+		attr_.save_fenv = attr->save_fenv;
+		attr_.save_error = attr->save_error;
+	}
+	attr = &attr_;
+
+#if !(_POSIX_C_SOURCE >= 200112L)
+	if (attr->save_mask) {
 		set_errnum(ERRNUM_INVAL);
 		return -1;
 	}
+#endif
+
+#if !_WIN32 && defined(__NEWLIB__)
+	if (attr->save_fenv) {
+		set_errnum(ERRNUM_INVAL);
+		return -1;
+	}
+#endif
 
 	if (thr->refcnt++)
 		return 1;
 
 #if _WIN32
 	DWORD dwFlags = 0;
-	if (flags & FIBER_SAVE_FENV)
+	if (attr->save_fenv)
 		dwFlags |= FIBER_FLAG_FLOAT_SWITCH;
 	assert(!thr->main.lpFiber);
 	thr->main.lpFiber = ConvertThreadToFiberEx(NULL, dwFlags);
-	if (!thr->main.lpFiber)
+	if (!thr->main.lpFiber) {
+		thr->refcnt--;
 		return -1;
+	}
 #endif
 	thr->main.thr = thr;
-	thr->main.flags = flags;
+	thr->main.attr = *attr;
 
 	assert(!thr->curr);
 	thr->curr = &thr->main;
@@ -251,40 +259,61 @@ fiber_thrd_fini(void)
 		ConvertFiberToThread();
 		thr->main.lpFiber = NULL;
 #endif
-		thr->main.flags = 0;
+		thr->main.attr = (struct fiber_attr)FIBER_ATTR_INIT;
 	}
 }
 
 fiber_t *
-fiber_create(fiber_func_t *func, void *arg, int flags, size_t data_size,
-		size_t stack_size)
+fiber_create(const struct fiber_attr *attr, fiber_func_t *func, void *arg)
 {
 	struct fiber_thrd *thr = &fiber_thrd;
-	assert(thr->curr);
+
+	struct fiber_attr attr_ =
+			attr ? *attr : (struct fiber_attr)FIBER_ATTR_INIT;
+	if (!attr_.data_addr)
+		attr_.data_size = ALIGN(attr_.data_size, FIBER_ALIGNOF);
+#if !_WIN32
+	if (!attr_.stack_addr) {
+#endif
+		if (!attr_.stack_size)
+			attr_.stack_size = LELY_FIBER_STKSZ;
+		else if (attr_.stack_size < LELY_FIBER_MINSTKSZ)
+			attr_.stack_size = LELY_FIBER_MINSTKSZ;
+		attr_.stack_size = ALIGN(attr_.stack_size, FIBER_ALIGNOF);
+#if !_WIN32
+	}
+#endif
+	attr = &attr_;
+
+#if !(_POSIX_C_SOURCE >= 200112L)
+	if (attr->save_mask) {
+		set_errnum(ERRNUM_INVAL);
+		return NULL;
+	}
+#endif
+
+#if !_WIN32 && defined(__NEWLIB__)
+	if (attr->save_fenv) {
+		set_errnum(ERRNUM_INVAL);
+		return NULL;
+	}
+#endif
 
 #if !_WIN32 && _POSIX_MAPPED_FILES && defined(MAP_ANONYMOUS)
-	if (flags & ~(FIBER_SAVE_ALL | FIBER_GUARD_STACK)) {
+	if (attr->guard_stack && attr->stack_addr) {
 #else
-	if (flags & ~FIBER_SAVE_ALL) {
+	if (attr->guard_stack) {
 #endif
 		set_errnum(ERRNUM_INVAL);
 		return NULL;
 	}
 
-	data_size = ALIGN(data_size, FIBER_ALIGNOF);
-
-	if (!stack_size)
-		stack_size = LELY_FIBER_STKSZ;
-	else if (stack_size < LELY_FIBER_MINSTKSZ)
-		stack_size = LELY_FIBER_MINSTKSZ;
-	stack_size = ALIGN(stack_size, FIBER_ALIGNOF);
-
-	size_t size = FIBER_SIZEOF + data_size;
+	size_t size = FIBER_SIZEOF + attr->data_size;
 #if !_WIN32
 #if _POSIX_MAPPED_FILES && defined(MAP_ANONYMOUS)
-	if (!(flags & FIBER_GUARD_STACK))
+	if (!attr->guard_stack)
 #endif
-		size += stack_size;
+		size += attr->stack_size;
 #endif
 
 	int errc = 0;
@@ -295,50 +324,53 @@ fiber_create(fiber_func_t *func, void *arg, int flags, size_t data_size,
 		goto error_malloc_fiber;
 	}
 
-	// The function pointer is stored by the call to fiber_resume_with()
-	// below.
-	fiber->func = NULL;
-	fiber->arg = NULL;
+	fiber->attr = *attr;
 
-	fiber->flags = flags;
-
-	// The data region immediately follows the fiber struct.
-	fiber->data = (char *)fiber + FIBER_SIZEOF;
-
-	fiber->thr = thr;
-	fiber->from = NULL;
-
+	size_t stack_size = fiber->attr.stack_size;
 #if !_WIN32
-	void *sp;
+	char *sp = fiber->attr.stack_addr;
 #if _POSIX_MAPPED_FILES && defined(MAP_ANONYMOUS)
-	fiber->stack_size = 0;
-	fiber->stack_addr = NULL;
-	if (flags & FIBER_GUARD_STACK) {
+	if (fiber->attr.guard_stack) {
+		assert(!sp);
 		// Create an anonymous private mapping for the stack with guard
 		// pages at both ends. This is the most portable solution,
 		// although it does waste a page. If we know in which direction
 		// the stack grows, we could omit one of the pages.
-		fiber->stack_size = stack_size;
-		fiber->stack_addr = guard_mmap(NULL, fiber->stack_size,
-				PROT_READ | PROT_WRITE);
-		if (!fiber->stack_addr) {
+		sp = guard_mmap(NULL, stack_size, PROT_READ | PROT_WRITE);
+		if (!sp) {
 			errc = get_errc();
 			goto error_create_stack;
 		}
-		sp = fiber->stack_addr;
 	} else
 #endif
-		sp = (char *)fiber->data + data_size;
+			if (!sp) {
+		sp = (char *)fiber + FIBER_SIZEOF;
+		if (!fiber->attr.data_addr)
+			sp += fiber->attr.data_size;
+	}
+	fiber->attr.stack_addr = sp;
 #if LELY_HAVE_VALGRIND
 	// Register the stack with Valgrind to avoid false positives.
 	fiber->id = VALGRIND_STACK_REGISTER(sp, (char *)sp + stack_size);
 #endif
 #endif // !_WIN32
 
+	if (!fiber->attr.data_addr && fiber->attr.data_size)
+		// The data region immediately follows the fiber struct.
+		fiber->attr.data_addr = (char *)fiber + FIBER_SIZEOF;
+
+	// The function pointer is stored by the call to fiber_resume_with()
+	// below.
+	fiber->func = NULL;
+	fiber->arg = NULL;
+
+	fiber->thr = thr;
+	fiber->from = NULL;
+
 	// Construct the fiber context.
 #if _WIN32
 	DWORD dwFlags = 0;
-	if (fiber->flags & FIBER_SAVE_FENV)
+	if (fiber->attr.save_fenv)
 		dwFlags |= FIBER_FLAG_FLOAT_SWITCH;
 	fiber->lpFiber = CreateFiberEx(
 			stack_size, 0, dwFlags, &fiber_start, fiber);
@@ -349,8 +381,8 @@ fiber_create(fiber_func_t *func, void *arg, int flags, size_t data_size,
 #else
 #if _POSIX_C_SOURCE >= 200112L && (!defined(__NEWLIB__) || defined(__CYGWIN__))
 	// clang-format off
-	if (sigmkjmp(fiber->env, fiber->flags & FIBER_SAVE_MASK, &fiber_start,
-			fiber, sp, stack_size) == -1) {
+	if (sigmkjmp(fiber->env, fiber->attr.save_mask, &fiber_start, fiber, sp,
+			stack_size) == -1) {
 		// clang-format on
 #else
 	if (mkjmp(fiber->env, &fiber_start, fiber, sp, stack_size) == -1) {
@@ -377,9 +409,9 @@ error_mkjmp:
 	VALGRIND_STACK_DEREGISTER(fiber->id);
 #endif
 #if _POSIX_MAPPED_FILES && defined(MAP_ANONYMOUS)
+	if (fiber->attr.guard_stack)
+		guard_munmap(fiber->attr.stack_addr, fiber->attr.stack_size);
 error_create_stack:
-	if (fiber->stack_addr)
-		guard_munmap(fiber->stack_addr, fiber->stack_size);
 #endif
 #endif
 	free(fiber);
@@ -401,12 +433,22 @@ fiber_destroy(fiber_t *fiber)
 		VALGRIND_STACK_DEREGISTER(fiber->id);
 #endif
 #if _POSIX_MAPPED_FILES && defined(MAP_ANONYMOUS)
-		if (fiber->stack_addr)
-			guard_munmap(fiber->stack_addr, fiber->stack_size);
+		if (fiber->attr.guard_stack)
+			guard_munmap(fiber->attr.stack_addr,
+					fiber->attr.stack_size);
 #endif
 #endif
 		free(fiber);
 	}
+}
+
+void
+fiber_get_attr(fiber_t *fiber, struct fiber_attr *pattr)
+{
+	assert(fiber_thrd.curr);
+
+	if (pattr)
+		*pattr = fiber ? fiber->attr : fiber_thrd.curr->attr;
 }
 
 void *
@@ -414,7 +456,7 @@ fiber_data(const fiber_t *fiber)
 {
 	assert(fiber_thrd.curr);
 
-	return fiber ? fiber->data : fiber_thrd.curr->data;
+	return fiber ? fiber->attr.data_addr : fiber_thrd.curr->attr.data_addr;
 }
 
 fiber_t *
@@ -453,13 +495,13 @@ fiber_resume_with(fiber_t *fiber, fiber_func_t *func, void *arg)
 #if _WIN32
 	DWORD dwErrCode = 0;
 	int errsv = 0;
-	if (curr->flags & FIBER_SAVE_ERROR) {
+	if (curr->attr.save_error) {
 		dwErrCode = GetLastError();
 		errsv = errno;
 	}
 #else
 	int errc = 0;
-	if (curr->flags & FIBER_SAVE_ERROR)
+	if (curr->attr.save_error)
 		errc = get_errc();
 #endif
 
@@ -468,7 +510,7 @@ fiber_resume_with(fiber_t *fiber, fiber_func_t *func, void *arg)
 	// ConvertThreadToFiberEx().
 #if !_WIN32 && !defined(__NEWLIB__)
 	fenv_t fenv;
-	if (curr->flags & FIBER_SAVE_FENV)
+	if (curr->attr.save_fenv)
 		fegetenv(&fenv);
 #endif
 
@@ -481,7 +523,7 @@ fiber_resume_with(fiber_t *fiber, fiber_func_t *func, void *arg)
 	SwitchToFiber(to->lpFiber);
 #elif _POSIX_C_SOURCE >= 200112L \
 		&& (!defined(__NEWLIB__) || defined(__CYGWIN__))
-	sigjmpto(curr->env, to->env, curr->flags & FIBER_SAVE_MASK);
+	sigjmpto(curr->env, to->env, curr->attr.save_mask);
 #else
 	jmpto(curr->env, to->env);
 #endif
@@ -492,12 +534,12 @@ fiber_resume_with(fiber_t *fiber, fiber_func_t *func, void *arg)
 
 	// Restore the floating-point environment.
 #if !_WIN32 && !defined(__NEWLIB__)
-	if (curr->flags & FIBER_SAVE_FENV)
+	if (curr->attr.save_fenv)
 		fesetenv(&fenv);
 #endif
 
 	// Restore the error code(s).
-	if (curr->flags & FIBER_SAVE_ERROR) {
+	if (curr->attr.save_error) {
 #if _WIN32
 		errno = errsv;
 		SetLastError(dwErrCode);

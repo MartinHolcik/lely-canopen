@@ -56,10 +56,8 @@ static _Thread_local struct ev_fiber_thrd {
 	 * number of invocation of ev_fiber_thrd_fini() for this thread.
 	 */
 	size_t refcnt;
-	/// The flags used when creating each fiber.
-	int flags;
-	/// The size (in bytes) of the stack frame allocated for each fiber.
-	size_t stack_size;
+	/// The attributes used when creating each fiber.
+	struct fiber_attr attr;
 	/// The maximum number of unused fibers for this thread.
 	size_t max_unused;
 	/// The list of unused fibers.
@@ -200,19 +198,27 @@ struct ev_fiber_cnd_impl {
 static void ev_fiber_cnd_wake(struct slnode *node);
 
 int
-ev_fiber_thrd_init(int flags, size_t stack_size, size_t max_unused)
+ev_fiber_thrd_init(const struct fiber_attr *attr, size_t max_unused)
 {
 	struct ev_fiber_thrd *thr = &ev_fiber_thrd;
 
 	if (thr->refcnt++)
 		return 1;
 
-	int result = fiber_thrd_init(flags & ~FIBER_GUARD_STACK);
+	struct fiber_attr attr_ =
+			attr ? *attr : (struct fiber_attr)FIBER_ATTR_INIT;
+	attr_.data_size = sizeof(struct ev_fiber_ctx);
+	attr_.data_addr = NULL;
+#if !_WIN32
+	attr_.stack_addr = NULL;
+#endif
+	attr = &attr_;
+
+	int result = fiber_thrd_init(attr);
 	if (result == -1) {
 		thr->refcnt--;
 	} else {
-		thr->flags = flags;
-		thr->stack_size = stack_size;
+		thr->attr = *attr;
 
 		if (!(thr->max_unused = max_unused))
 			thr->max_unused = LELY_EV_FIBER_MAX_UNUSED;
@@ -880,9 +886,8 @@ ev_fiber_ctx_create(struct ev_fiber_exec *exec)
 		assert(thr->num_unused);
 		thr->num_unused--;
 	} else {
-		fiber_t *fiber = fiber_create(&ev_fiber_ctx_fiber_func, NULL,
-				thr->flags, sizeof(struct ev_fiber_ctx),
-				thr->stack_size);
+		fiber_t *fiber = fiber_create(
+				&thr->attr, &ev_fiber_ctx_fiber_func, NULL);
 		if (!fiber)
 			return NULL;
 		ctx = fiber_data(fiber);

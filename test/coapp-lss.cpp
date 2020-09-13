@@ -24,8 +24,7 @@ namespace detail {
 
 class FiberLssMasterBase {
  protected:
-  FiberLssMasterBase(ev_exec_t* exec_)
-      : thrd(ev::FiberFlag::SAVE_ERROR), exec(exec_), strand(exec) {}
+  FiberLssMasterBase(ev_exec_t* exec_) : exec(exec_), strand(exec) {}
 
   ev::FiberThread thrd;
   ev::FiberExecutor exec;

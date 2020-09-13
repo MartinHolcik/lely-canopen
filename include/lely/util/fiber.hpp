@@ -48,70 +48,6 @@
 namespace lely {
 namespace util {
 
-/**
- * Specifies which properties of the calling environment are saved or restored
- * by a fiber when it is suspended or resumed and how its stack is allocated.
- */
-enum class FiberFlag {
-  /**
-   * The fiber saves and restores the signal mask (only supported on POSIX
-   * platforms).
-   */
-  SAVE_MASK = FIBER_SAVE_MASK,
-  /// The fiber saves and restores the floating-point environment.
-  SAVE_FENV = FIBER_SAVE_FENV,
-  /**
-   * The fiber saves and restores the error values (i.e., errno and
-   * GetLastError() on Windows).
-   */
-  SAVE_ERROR = FIBER_SAVE_ERROR,
-  /**
-   * The combination of #FiberFlag::SAVE_MASK, #FiberFlag::SAVE_FENV and
-   * #FiberFlag::SAVE_ERROR that is supported by the platform.
-   */
-  SAVE_ALL = FIBER_SAVE_ALL,
-  /**
-   * The fiber adds a guard page when allocating the stack frame so that the
-   * kernel generates a SIGSEGV signal on stack overflow (only supported on
-   * those POSIX platforms where mmap() supports anonymous mappings).
-   */
-  GUARD_STACK = FIBER_GUARD_STACK
-};
-
-constexpr FiberFlag
-operator~(FiberFlag rhs) {
-  return static_cast<FiberFlag>(~static_cast<int>(rhs));
-}
-
-constexpr FiberFlag operator&(FiberFlag lhs, FiberFlag rhs) {
-  return static_cast<FiberFlag>(static_cast<int>(lhs) & static_cast<int>(rhs));
-}
-
-constexpr FiberFlag
-operator^(FiberFlag lhs, FiberFlag rhs) {
-  return static_cast<FiberFlag>(static_cast<int>(lhs) ^ static_cast<int>(rhs));
-}
-
-constexpr FiberFlag
-operator|(FiberFlag lhs, FiberFlag rhs) {
-  return static_cast<FiberFlag>(static_cast<int>(lhs) | static_cast<int>(rhs));
-}
-
-inline FiberFlag&
-operator&=(FiberFlag& lhs, FiberFlag rhs) {
-  return lhs = lhs & rhs;
-}
-
-inline FiberFlag&
-operator^=(FiberFlag& lhs, FiberFlag rhs) {
-  return lhs = lhs ^ rhs;
-}
-
-inline FiberFlag&
-operator|=(FiberFlag& lhs, FiberFlag rhs) {
-  return lhs = lhs | rhs;
-}
-
 #if __cpp_exceptions
 
 class Fiber;
@@ -135,33 +71,33 @@ class FiberThread {
   friend class Fiber;
 
  public:
-  /// Equivalent to `#FiberThread(static_cast<FiberFlag>(0))`.
-  FiberThread() : FiberThread(static_cast<FiberFlag>(0)) {}
+  /**
+   * Initializes the fiber associated with the calling thread, if it was not
+   * already initialized.
+   */
+  FiberThread() : FiberThread(fiber_attr FIBER_ATTR_INIT) {}
 
   /**
    * Initializes the fiber associated with the calling thread, if it was not
    * already initialized.
    *
-   * @param flags any supported combination of #FiberFlag::SAVE_MASK,
-   *              #FiberFlag::SAVE_FENV and #FiberFlag::SAVE_ERROR.
+   * @param attr the fiber attributes.
    */
-  explicit FiberThread(FiberFlag flags) {
-    if (fiber_thrd_init(static_cast<int>(flags)) == -1)
-      throw_errc("FiberThread");
+  explicit FiberThread(const fiber_attr& attr) {
+    if (fiber_thrd_init(&attr) == -1) throw_errc("FiberThread");
   }
 
   /**
    * Initializes the fiber associated with the calling thread, if it was not
    * already initialized.
    *
-   * @param flags   any supported combination of #FiberFlag::SAVE_MASK,
-   *                #FiberFlag::SAVE_FENV and #FiberFlag::SAVE_ERROR.
+   * @param attr    the fiber attributes.
    * @param already set to true if the fiber associated with the calling thread
    *                was already initialized, and to false if not. In the former
    *                case, the value of <b>flags</b> is ignored.
    */
-  FiberThread(FiberFlag flags, bool& already) {
-    int result = fiber_thrd_init(static_cast<int>(flags));
+  explicit FiberThread(const fiber_attr& attr, bool& already) {
+    int result = fiber_thrd_init(&attr);
     if (result == -1) throw_errc("FiberThread");
     already = result != 0;
   }
@@ -211,39 +147,31 @@ class Fiber {
 
   explicit Fiber(fiber_t* fiber) noexcept : fiber_(fiber) {}
 
-  /// Equivalent to `Fiber::Fiber(f, static_cast<FiberFlag>(0), 0)`.
+  /**
+   * Constructs a fiber with the default attributes. The specified callable
+   * object is not invoked until the first call to resume() or resume_with().
+   */
   template <class F, class = typename ::std::enable_if<!::std::is_same<
                          typename ::std::decay<F>::type, Fiber>::value>::type>
-  explicit Fiber(F&& f) : Fiber(::std::forward<F>(f), 0) {}
-
-  /// Equivalent to `Fiber::Fiber(f, flags, 0)`.
-  template <class F>
-  Fiber(F&& f, FiberFlag flags) : Fiber(::std::forward<F>(f), flags, 0) {}
-
-  /// Equivalent to `Fiber::Fiber(f, static_cast<FiberFlag>(0), stack_size)`.
-  template <class F>
-  Fiber(F&& f, ::std::size_t stack_size)
-      : Fiber(::std::forward<F>(f), static_cast<FiberFlag>(0), stack_size) {}
+  explicit Fiber(F&& f)
+      : Fiber(::std::forward<F>(f), fiber_attr FIBER_ATTR_INIT) {}
 
   /**
-   * Constructs a fiber with a newly allocated stack. The specified callable
+   * Constructs a fiber with the specified attributes. The specified callable
    * object is not invoked until the first call to resume() or resume_with().
    *
-   * @param f          a callable object with signature `Fiber(Fiber&&)`.
-   * @param flags      any supported combination of #FiberFlag::SAVE_MASK,
-   *                   #FiberFlag::SAVE_FENV, #FiberFlag::SAVE_ERROR and
-   *                   #FiberFlag::GUARD_STACK.
-   * @param stack_size the size (in bytes) of the stack frame to be allocated
-   *                   for the fiber. If 0, the default size (#LELY_FIBER_STKSZ)
-   *                   is used. The size of the allocated stack is always at
-   *                   least #LELY_FIBER_MINSTKSZ bytes.
+   * @param f    a callable object with signature `Fiber(Fiber&&)`.
+   * @param attr the fiber attributes.
    */
   template <class F, class = typename ::std::enable_if<compat::is_invocable_r<
                          Fiber, F, Fiber&&>::value>::type>
-  Fiber(F&& f, FiberFlag flags, ::std::size_t stack_size) {
-    fiber_ = fiber_create(
-        &func_<decltype(f)>, static_cast<void*>(::std::addressof(f)),
-        static_cast<int>(flags), sizeof(detail::FiberData), stack_size);
+  Fiber(F&& f, const fiber_attr& attr) {
+    if (attr.data_size || attr.data_addr)
+      throw_error_code("Fiber", ::std::errc::invalid_argument);
+    fiber_attr attr_ = attr;
+    attr_.data_size = sizeof(detail::FiberData);
+    fiber_ = fiber_create(&attr_, &func_<decltype(f)>,
+                          static_cast<void*>(::std::addressof(f)));
     if (!fiber_) throw_errc("Fiber");
     auto data = data_(fiber_);
     // The default constructor for detail::FiberData does not throw.
