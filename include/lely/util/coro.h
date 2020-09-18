@@ -113,6 +113,37 @@ struct coro_attr {
 /// A complete object type that holds an identifier for a coroutine.
 typedef struct coro *coro_t;
 
+enum {
+	/**
+	 * A coroutine mutex type that supports neither timeout nor recursive
+	 * locking.
+	 */
+	coro_mtx_plain,
+	/// A coroutine mutex type that supports timeout.
+	coro_mtx_timed,
+	/// A coroutine mutex type that supports recursive locking.
+	coro_mtx_recursive
+};
+
+/**
+ * A synchronization primitive (similar to the standard C11 mutex) that can be
+ * used to protect shared data from being simultaneously accessed by multiple
+ * coroutines. This mutex offers exclusive, non-recursive ownership semantics.
+ */
+typedef struct {
+	void *_impl;
+} coro_mtx_t;
+
+/**
+ * A synchronization primitive (similar to the standard C11 condition variable)
+ * that can be used to block one or more coroutines until another coroutine or
+ * thread both modifies the shared variable (the _condition_), and notifies the
+ * condition variable.
+ */
+typedef struct {
+	void *_impl;
+} coro_cnd_t;
+
 /// An abstract coroutine scheduler factory.
 typedef const struct coro_sched_ctor_vtbl *const coro_sched_ctor_t;
 
@@ -328,6 +359,139 @@ int coro_set_sched(coro_t coro, coro_sched_t *sched);
  * and 0 if not.
  */
 int coro_is_pinned(coro_t coro);
+
+/**
+ * Creates a coroutine mutex object with properties indicated by <b>type</b>,
+ * which must have one of the four values:
+ * - `#coro_mtx_plain` for a simple non-recursive mutex,
+ * - `#coro_mtx_timed` for a non-recursive mutex that supports timeout,
+ * - `#coro_mtx_plain | #coro_mtx_recursive` for a simple recursive mutex, or
+ * - `#coro_mtx_timed | #coro_mtx_recursive` for a recursive mutex that supports
+ *   timeout.
+ *
+ * If this function succeeds, it sets the mutex at <b>mtx</b> to a value that
+ * uniquely identifies the newly created mutex.
+ *
+ * @returns #coro_success on success, or #coro_nomem if no memory could be
+ * allocated for the newly created mutex, or #coro_error if the request could
+ * not be honored.
+ */
+int coro_mtx_init(coro_mtx_t *mtx, int type);
+
+/**
+ * Releases any resources used by the coroutine mutex at <b>mtx</b>. No
+ * coroutines can be blocked waiting for the mutex at <b>mtx</b>.
+ */
+void coro_mtx_destroy(coro_mtx_t *mtx);
+
+/**
+ * Suspends the currently running coroutine until it locks the coroutine mutex
+ * at <b>mtx</b>. If the mutex is non-recursive, it SHALL not be locked by the
+ * calling coroutine. Prior calls to coro_mtx_unlock() on the same mutex shall
+ * synchronize with this operation.
+ *
+ * @returns #coro_success on success, or #coro_error if the request could not be
+ * honored.
+ */
+int coro_mtx_lock(coro_mtx_t *mtx);
+
+/**
+ * Endeavors to lock the coroutine mutex at <b>mtx</b>. If the mutex is already
+ * locked, the function returns without blocking. If the operation succeeds,
+ * prior calls to coro_mtx_unlock() on the same mutex shall synchronize with
+ * this operation.
+ *
+ * @returns #coro_success on success, or #coro_busy if the resource requested is
+ * already in use, or #coro_error if the request could not be honored.
+ */
+int coro_mtx_trylock(coro_mtx_t *mtx);
+
+/**
+ * Endeavors to block until it locks the coroutine mutex at <b>mtx</b> or until
+ * after the TIME_UTC-based calendar time at <b>ts</b>. The specified mutex
+ * SHALL support timeout. If the operation succeeds, prior calls to
+ * coro_mtx_unlock() on the same mutex shall synchronize with this operation.
+ *
+ * @returns #coro_success on success, or #coro_timedout if the time specified
+ * was reached without acquiring the requested resource, or #coro_error if the
+ * request could not be honored.
+ */
+int coro_mtx_timedlock(coro_mtx_t *mtx, const struct timespec *ts);
+
+/**
+ * Unlocks the coroutine mutex at <b>mtx</b>. The mutex at <b>mtx</b> SHALL be
+ * locked by the calling coroutine.
+ *
+ * @returns #coro_success on success, or #coro_error if the request could not be
+ * honored.
+ */
+int coro_mtx_unlock(coro_mtx_t *mtx);
+
+/**
+ * Creates a coroutine condition variable. If it succeedsm it sets the variable
+ * at <b>cond</b> to a value that uniquely identifies the newly created
+ * condition variable. A coroutine that calls coro_cnd_wait() on a newly created
+ * condition variable will block.
+ *
+ * @returns #coro_success on success, or #coro_nomem if no memory could be
+ * allocated for the newly created condition, or #coro_error if the request
+ * could not be honored.
+ */
+int coro_cnd_init(coro_cnd_t *cond);
+
+/**
+ * Releases all resources used by the coroutine condition variable at
+ * <b>cond</b>. This function requires that no coroutines be blocked waiting for
+ * the condition variable at <b>cond</b>.
+ */
+void coro_cnd_destroy(coro_cnd_t *cond);
+
+/**
+ * Unblocks one of the coroutines that are blocked on the coroutine condition
+ * variable at <b>cond</b> at the time of the call. If no coroutines are blocked
+ * on the condition variable at the time of the call, the function does nothing.
+ *
+ * @returns #coro_success.
+ */
+int coro_cnd_signal(coro_cnd_t *cond);
+
+/**
+ * Unblocks all of the coroutines that are blocked on the coroutine condition
+ * variable at <b>cond</b> at the time of the call. If no coroutines are blocked
+ * on the condition variable at <b>cond</b> at the time of the call, the
+ * function does nothing.
+ *
+ * @returns #coro_success.
+ */
+int coro_cnd_broadcast(coro_cnd_t *cond);
+
+/**
+ * Atomically unlocks the coroutine mutex at <b>mtx</b> and endeavors to block
+ * until the coroutine condition variable at <b>cond</b> is signaled by a call
+ * to coro_cnd_signal() or to coro_cnd_broadcast(). When the calling coroutine
+ * becomes unblocked it locks the mutex at <b>mtx</b> before it returns. This
+ * function requires that the mutex at <b>mtx</b> be locked by the calling
+ * coroutine.
+ *
+ * @returns #coro_success on success, or #coro_error if the request could not be
+ * honored.
+ */
+int coro_cnd_wait(coro_cnd_t *cond, coro_mtx_t *mtx);
+
+/**
+ * Atomically unlocks the coroutine mutex at <b>mtx</b> and endeavors to block
+ * until the coroutine condition variable at <b>cond</b> is signaled by a call
+ * to coro_cnd_signal() or to coro_cnd_broadcast(), or until after the
+ * TIME_UTC-based calendar time at <b>ts</b>. When the calling coroutine becomes
+ * unblocked it locks the mutex at <b>mtx</b> before it returns. This function
+ * requires that the mutex at <b>mtx</b> be locked by the calling coroutine.
+ *
+ * @returns #coro_success upon success, or #coro_timedout if the time specified
+ * in the call was reached without acquiring the requested resource, or
+ * #coro_error if the request could not be honored.
+ */
+int coro_cnd_timedwait(
+		coro_cnd_t *cond, coro_mtx_t *mtx, const struct timespec *ts);
 
 #ifdef __cplusplus
 }

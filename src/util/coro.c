@@ -27,6 +27,7 @@
 #endif
 #include <lely/util/coro.h>
 #include <lely/util/coro_sched.h>
+#include <lely/util/dllist.h>
 #include <lely/util/errnum.h>
 #include <lely/util/fiber.h>
 #include <lely/util/pheap.h>
@@ -34,6 +35,7 @@
 #include <lely/util/util.h>
 
 #include <assert.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 #ifndef LELY_CORO_MINSTKSZ
@@ -164,6 +166,75 @@ static void coro_yield_suspend_func(coro_t coro, void *arg);
 static void coro_sleep_suspend_func(coro_t coro, void *arg);
 
 static void coro_sleep_wait_func(void *arg);
+
+/// The implementation of a coroutine mutex.
+struct coro_mtx_impl {
+	/// The type of mutex.
+	int type;
+#if !LELY_NO_THREADS
+	/// The mutex protecting #locked, #coro and #queue.
+	mtx_t mtx;
+#endif
+	/// The number of times the mutex has been recursively locked.
+	size_t locked;
+	/// The coroutine holding the lock.
+	coro_t coro;
+	/// The queue of coroutines waiting to acquire the lock.
+	struct dllist queue;
+};
+
+static int coro_mtx_impl_trylock_l(struct coro_mtx_impl *impl);
+
+/// An object representing a coroutine waiting to lock a mutex.
+struct coro_mtx_wait {
+	/// A pointer to the mutex.
+	coro_mtx_t *mtx;
+	/// The coroutine waiting to lock the mutex.
+	coro_t coro;
+	/// The node in the queue of the nutex.
+	struct dlnode node;
+};
+
+static void coro_mtx_wait_lock(struct coro_mtx_wait *wait);
+
+/// The implementation of a coroutine condition variable.
+struct coro_cnd_impl {
+#if !LELY_NO_THREADS
+	/// The mutex protecting #queue.
+	mtx_t mtx;
+#endif
+	/**
+	 * The list of coroutines waiting for the condition variable to be
+	 * signaled.
+	 */
+	struct dllist queue;
+};
+
+/**
+ * An object representing a coroutine waiting for a condition variable to be
+ * signaled.
+ */
+struct coro_cnd_wait {
+	/// A pointer to the condition variable.
+	coro_cnd_t *cond;
+	/// A flag indicating whether the condition variable was signaled.
+	int signaled;
+	/**
+	 * The object used when waiting to lock the mutex after the condition
+	 * variable has been signaled.
+	 */
+	struct coro_mtx_wait mtx_wait;
+	/// The node in the queue of the condition variable.
+	struct dlnode node;
+};
+
+static void coro_mtx_lock_suspend_func_l(coro_t coro, void *arg);
+static void coro_mtx_timedlock_suspend_func_l(coro_t coro, void *arg);
+static void coro_mtx_timedlock_wait_func(void *arg);
+
+static void coro_cnd_wait_suspend_func_l(coro_t coro, void *arg);
+static void coro_cnd_timedwait_suspend_func_l(coro_t coro, void *arg);
+static void coro_cnd_timedwait_wait_func(void *arg);
 
 int
 coro_thrd_init(const struct coro_attr *attr, coro_sched_ctor_t *ctor)
@@ -585,6 +656,415 @@ coro_is_pinned(coro_t coro)
 	return impl->attr.pinned;
 }
 
+int
+coro_mtx_init(coro_mtx_t *mtx, int type)
+{
+	assert(mtx);
+
+	if (type & ~(coro_mtx_timed | coro_mtx_recursive)) {
+		set_errnum(ERRNUM_INVAL);
+		return coro_error;
+	}
+
+	struct coro_mtx_impl *impl = malloc(sizeof(*impl));
+	if (!impl) {
+		set_errc(errno2c(errno));
+		return coro_nomem;
+	}
+
+	impl->type = type;
+
+#if !LELY_NO_THREADS
+	if (mtx_init(&impl->mtx, mtx_plain) != thrd_success) {
+		free(impl);
+		return coro_error;
+	}
+#endif
+
+	impl->locked = 0;
+	impl->coro = NULL;
+	dllist_init(&impl->queue);
+
+	mtx->_impl = impl;
+
+	return coro_success;
+}
+
+void
+coro_mtx_destroy(coro_mtx_t *mtx)
+{
+	if (mtx && mtx->_impl) {
+		struct coro_mtx_impl *impl = mtx->_impl;
+		mtx->_impl = NULL;
+
+		assert(!impl->locked);
+		assert(dllist_empty(&impl->queue));
+#if !LELY_NO_THREADS
+		mtx_destroy(&impl->mtx);
+#endif
+		free(impl);
+	}
+}
+
+int
+coro_mtx_lock(coro_mtx_t *mtx)
+{
+	assert(mtx);
+	struct coro_mtx_impl *impl = mtx->_impl;
+	assert(impl);
+
+#if !LELY_NO_THREADS
+	mtx_lock(&impl->mtx);
+#endif
+	if (!impl->locked || coro_equal(impl->coro, coro_current())) {
+		int result = coro_mtx_impl_trylock_l(impl);
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+#endif
+		return result;
+	}
+
+	struct coro_mtx_wait wait = { .mtx = mtx };
+	// impl->mtx is unlocked by coro_mtx_lock_suspend_func_l().
+	coro_suspend_with(&coro_mtx_lock_suspend_func_l, &wait);
+
+	return coro_success;
+}
+
+int
+coro_mtx_trylock(coro_mtx_t *mtx)
+{
+	assert(mtx);
+	struct coro_mtx_impl *impl = mtx->_impl;
+	assert(impl);
+
+#if !LELY_NO_THREADS
+	mtx_lock(&impl->mtx);
+#endif
+	int result = coro_mtx_impl_trylock_l(impl);
+#if !LELY_NO_THREADS
+	mtx_unlock(&impl->mtx);
+#endif
+	return result;
+}
+
+int
+coro_mtx_timedlock(coro_mtx_t *mtx, const struct timespec *ts)
+{
+	struct coro_thrd *thr = &coro_thrd;
+	assert(mtx);
+	struct coro_mtx_impl *impl = mtx->_impl;
+	assert(impl);
+	assert(ts);
+
+	if (ts->tv_nsec < 0 || ts->tv_nsec >= 1000000000l) {
+		set_errnum(ERRNUM_INVAL);
+		return coro_error;
+	}
+
+	if (!(impl->type & coro_mtx_timed)) {
+		set_errnum(ERRNUM_PERM);
+		return coro_error;
+	}
+
+#if !LELY_NO_THREADS
+	mtx_lock(&impl->mtx);
+#endif
+	if (!impl->locked || coro_equal(impl->coro, coro_current())) {
+		int result = coro_mtx_impl_trylock_l(impl);
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+#endif
+		return result;
+	}
+
+	struct coro_mtx_wait mtx_wait = { .mtx = mtx };
+	struct coro_mtx_wait *waiting = &mtx_wait;
+	struct coro_thrd_wait thrd_wait = {
+		.func = &coro_mtx_timedlock_wait_func,
+		.arg = &waiting,
+		.thr = thr
+	};
+	pnode_init(&thrd_wait.node, ts);
+
+	struct {
+		struct coro_mtx_wait *mtx_wait;
+		struct coro_thrd_wait *thrd_wait;
+	} args = { &mtx_wait, &thrd_wait };
+	// impl->mtx is unlocked by coro_mtx_timedlock_suspend_func_l().
+	coro_suspend_with(&coro_mtx_timedlock_suspend_func_l, &args);
+	thr = thrd_wait.thr;
+
+#if !LELY_NO_THREADS
+	mtx_lock(&impl->mtx);
+#endif
+	if (coro_equal(impl->coro, mtx_wait.coro)) {
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+		mtx_lock(&thr->mtx);
+#endif
+		// Check if we need to deregister the waiting function. We may
+		// not if the waiting function was executed between locking the
+		// mutex and resuming the coroutine.
+		if (waiting)
+			pheap_remove(&thr->heap, &thrd_wait.node);
+#if !LELY_NO_THREADS
+		mtx_unlock(&thr->mtx);
+#endif
+		return coro_success;
+	} else {
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+#endif
+		// A timeout can only occur if the waiting fuction was executed.
+		assert(!waiting);
+		return coro_timedout;
+	}
+}
+
+int
+coro_mtx_unlock(coro_mtx_t *mtx)
+{
+	assert(mtx);
+	struct coro_mtx_impl *impl = mtx->_impl;
+	assert(impl);
+
+#if !LELY_NO_THREADS
+	mtx_lock(&impl->mtx);
+#endif
+	if (!impl->locked || !coro_equal(impl->coro, coro_current())) {
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+#endif
+		set_errnum(ERRNUM_PERM);
+		return coro_error;
+	}
+
+	if (!--impl->locked) {
+		impl->coro = NULL;
+		// Check if another coroutine is waiting to lock the mutex. If
+		// so, lock the mutex and resume that coroutine.
+		struct dlnode *node = dllist_pop_front(&impl->queue);
+		if (node) {
+			struct coro_mtx_wait *wait = structof(
+					node, struct coro_mtx_wait, node);
+			impl->locked++;
+			impl->coro = wait->coro;
+#if !LELY_NO_THREADS
+			mtx_unlock(&impl->mtx);
+#endif
+			coro_resume(impl->coro);
+#if !LELY_NO_THREADS
+		} else {
+			mtx_unlock(&impl->mtx);
+#endif
+		}
+#if !LELY_NO_THREADS
+	} else {
+		mtx_unlock(&impl->mtx);
+#endif
+	}
+
+	return coro_success;
+}
+
+int
+coro_cnd_init(coro_cnd_t *cond)
+{
+	assert(cond);
+
+	struct coro_cnd_impl *impl = malloc(sizeof(*impl));
+	if (!impl) {
+		set_errc(errno2c(errno));
+		return coro_nomem;
+	}
+
+#if !LELY_NO_THREADS
+	if (mtx_init(&impl->mtx, mtx_plain) != thrd_success) {
+		free(impl);
+		return coro_error;
+	}
+#endif
+
+	dllist_init(&impl->queue);
+
+	cond->_impl = impl;
+
+	return coro_success;
+}
+
+void
+coro_cnd_destroy(coro_cnd_t *cond)
+{
+	if (cond && cond->_impl) {
+		struct coro_cnd_impl *impl = cond->_impl;
+		cond->_impl = NULL;
+
+		assert(dllist_empty(&impl->queue));
+#if !LELY_NO_THREADS
+		mtx_destroy(&impl->mtx);
+#endif
+		free(impl);
+	}
+}
+
+int
+coro_cnd_signal(coro_cnd_t *cond)
+{
+	assert(cond);
+	struct coro_cnd_impl *impl = cond->_impl;
+	assert(impl);
+
+#if !LELY_NO_THREADS
+	mtx_lock(&impl->mtx);
+#endif
+	struct dlnode *node = dllist_pop_front(&impl->queue);
+	if (node) {
+		struct coro_cnd_wait *wait =
+				structof(node, struct coro_cnd_wait, node);
+		wait->signaled = 1;
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+#endif
+		coro_mtx_wait_lock(&wait->mtx_wait);
+#if !LELY_NO_THREADS
+	} else {
+		mtx_unlock(&impl->mtx);
+#endif
+	}
+
+	return coro_success;
+}
+
+int
+coro_cnd_broadcast(coro_cnd_t *cond)
+{
+	assert(cond);
+	struct coro_cnd_impl *impl = cond->_impl;
+	assert(impl);
+
+#if !LELY_NO_THREADS
+	mtx_lock(&impl->mtx);
+#endif
+	struct dlnode *node;
+	while ((node = dllist_pop_front(&impl->queue))) {
+		struct coro_cnd_wait *wait =
+				structof(node, struct coro_cnd_wait, node);
+		wait->signaled = 1;
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+#endif
+		coro_mtx_wait_lock(&wait->mtx_wait);
+#if !LELY_NO_THREADS
+		mtx_lock(&impl->mtx);
+#endif
+	}
+#if !LELY_NO_THREADS
+	mtx_unlock(&impl->mtx);
+#endif
+
+	return coro_success;
+}
+
+int
+coro_cnd_wait(coro_cnd_t *cond, coro_mtx_t *mtx)
+{
+	assert(cond);
+	struct coro_cnd_impl *impl = cond->_impl;
+	assert(impl);
+
+#if !LELY_NO_THREADS
+	mtx_lock(&impl->mtx);
+#endif
+	if (coro_mtx_unlock(mtx) != coro_success) {
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+#endif
+		return coro_error;
+	}
+
+	struct coro_cnd_wait wait = { .cond = cond,
+		.mtx_wait = { .mtx = mtx } };
+	struct {
+		struct coro_cnd_impl *impl;
+		struct coro_cnd_wait *wait;
+	} args = { impl, &wait };
+	// impl->mtx is unlocked by coro_cnd_wait_suspend_func_l().
+	coro_suspend_with(&coro_cnd_wait_suspend_func_l, &args);
+
+	return coro_success;
+}
+
+int
+coro_cnd_timedwait(coro_cnd_t *cond, coro_mtx_t *mtx, const struct timespec *ts)
+{
+	struct coro_thrd *thr = &coro_thrd;
+	assert(cond);
+	struct coro_cnd_impl *impl = cond->_impl;
+	assert(impl);
+	assert(ts);
+
+	if (ts->tv_nsec < 0 || ts->tv_nsec >= 1000000000l) {
+		set_errnum(ERRNUM_INVAL);
+		return coro_error;
+	}
+
+#if !LELY_NO_THREADS
+	mtx_lock(&impl->mtx);
+#endif
+	if (coro_mtx_unlock(mtx) != coro_success) {
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+#endif
+		return coro_error;
+	}
+
+	struct coro_cnd_wait cond_wait = { .cond = cond,
+		.mtx_wait = { .mtx = mtx } };
+	struct coro_cnd_wait *waiting = &cond_wait;
+	struct coro_thrd_wait thrd_wait = {
+		.func = &coro_cnd_timedwait_wait_func,
+		.arg = &waiting,
+		.thr = thr
+	};
+	pnode_init(&thrd_wait.node, ts);
+
+	struct {
+		struct coro_cnd_impl *impl;
+		struct coro_cnd_wait *cond_wait;
+		struct coro_thrd_wait *thrd_wait;
+	} args = { impl, &cond_wait, &thrd_wait };
+	// impl->mtx is unlocked by coro_cnd_timedwait_suspend_func_l().
+	coro_suspend_with(&coro_cnd_timedwait_suspend_func_l, &args);
+	thr = thrd_wait.thr;
+
+#if !LELY_NO_THREADS
+	mtx_lock(&impl->mtx);
+#endif
+	if (cond_wait.signaled) {
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+		mtx_lock(&thr->mtx);
+#endif
+		// Check if we need to deregister the waiting function. We may
+		// not if the waiting function was executed between signaling
+		// the condition variable and resuming the coroutine.
+		if (waiting)
+			pheap_remove(&thr->heap, &thrd_wait.node);
+#if !LELY_NO_THREADS
+		mtx_unlock(&thr->mtx);
+#endif
+		return coro_success;
+	} else {
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+#endif
+		// A timeout can only occur if the waiting fuction was executed.
+		assert(!waiting);
+		return coro_timedout;
+	}
+}
+
 static inline struct coro_impl *
 coro_impl_from_coro(coro_t coro)
 {
@@ -841,4 +1321,235 @@ coro_sleep_wait_func(void *arg)
 	assert(coro);
 
 	coro_resume(coro);
+}
+
+static int
+coro_mtx_impl_trylock_l(struct coro_mtx_impl *impl)
+{
+	assert(impl);
+
+	if (impl->locked) {
+		if (coro_equal(impl->coro, coro_current())) {
+			if (!(impl->type & coro_mtx_recursive)) {
+				set_errnum(ERRNUM_DEADLK);
+				return coro_error;
+			} else if (impl->locked >= SIZE_MAX) {
+				set_errnum(ERRNUM_AGAIN);
+				return coro_error;
+			}
+			impl->locked++;
+			return coro_success;
+		} else {
+			return coro_busy;
+		}
+	} else {
+		assert(!impl->coro);
+		assert(dllist_empty(&impl->queue));
+		impl->locked = 1;
+		impl->coro = coro_current();
+		return coro_success;
+	}
+}
+
+static void
+coro_mtx_wait_lock(struct coro_mtx_wait *wait)
+{
+	assert(wait);
+	assert(wait->mtx);
+	assert(wait->coro);
+	struct coro_mtx_impl *impl = wait->mtx->_impl;
+	assert(impl);
+
+#if !LELY_NO_THREADS
+	mtx_lock(&impl->mtx);
+#endif
+	if (impl->locked) {
+		if (coro_equal(impl->coro, wait->coro)) {
+			assert(impl->type & coro_mtx_recursive);
+			assert(impl->locked < SIZE_MAX);
+			impl->locked++;
+#if !LELY_NO_THREADS
+			mtx_unlock(&impl->mtx);
+#endif
+			coro_resume(impl->coro);
+		} else {
+			dllist_push_back(&impl->queue, &wait->node);
+#if !LELY_NO_THREADS
+			mtx_unlock(&impl->mtx);
+#endif
+		}
+	} else {
+		assert(dllist_empty(&impl->queue));
+		impl->locked = 1;
+		impl->coro = wait->coro;
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+#endif
+		coro_resume(impl->coro);
+	}
+}
+
+static void
+coro_mtx_lock_suspend_func_l(coro_t coro, void *arg)
+{
+	assert(coro);
+	struct coro_mtx_wait *wait = arg;
+	assert(wait);
+	assert(wait->mtx);
+	struct coro_mtx_impl *impl = wait->mtx->_impl;
+	assert(impl);
+
+	wait->coro = coro;
+	dllist_push_back(&impl->queue, &wait->node);
+
+#if !LELY_NO_THREADS
+	mtx_unlock(&impl->mtx);
+#endif
+}
+
+static void
+coro_mtx_timedlock_suspend_func_l(coro_t coro, void *arg)
+{
+	assert(coro);
+	struct {
+		struct coro_mtx_wait *mtx_wait;
+		struct coro_thrd_wait *thrd_wait;
+	} *args = arg;
+	assert(args);
+	struct coro_mtx_wait *mtx_wait = args->mtx_wait;
+	assert(mtx_wait);
+	assert(mtx_wait->mtx);
+	struct coro_mtx_impl *impl = mtx_wait->mtx->_impl;
+	assert(impl);
+	struct coro_thrd_wait *thrd_wait = args->thrd_wait;
+	assert(thrd_wait);
+	struct coro_thrd *thr = thrd_wait->thr;
+	assert(thr);
+
+	mtx_wait->coro = coro;
+	dllist_push_back(&impl->queue, &mtx_wait->node);
+#if !LELY_NO_THREADS
+	mtx_unlock(&impl->mtx);
+
+	mtx_lock(&thr->mtx);
+#endif
+	pheap_insert(&thr->heap, &thrd_wait->node);
+#if !LELY_NO_THREADS
+	mtx_unlock(&thr->mtx);
+#endif
+}
+
+static void
+coro_mtx_timedlock_wait_func(void *arg)
+{
+	struct coro_mtx_wait **pwaiting = arg;
+	assert(arg);
+	struct coro_mtx_wait *wait = *pwaiting;
+	assert(wait);
+	assert(wait->mtx);
+	struct coro_mtx_impl *impl = wait->mtx->_impl;
+	assert(impl);
+
+	*pwaiting = NULL;
+
+#if !LELY_NO_THREADS
+	mtx_lock(&impl->mtx);
+#endif
+	// Check if we succeeded in locking the mutex. If not, deregister the
+	// coroutine and resume it.
+	if (!coro_equal(impl->coro, wait->coro)) {
+		dllist_remove(&impl->queue, &wait->node);
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+#endif
+		coro_resume(wait->coro);
+#if !LELY_NO_THREADS
+	} else {
+		mtx_unlock(&impl->mtx);
+#endif
+	}
+}
+
+static void
+coro_cnd_wait_suspend_func_l(coro_t coro, void *arg)
+{
+	assert(coro);
+	struct {
+		struct coro_cnd_impl *impl;
+		struct coro_cnd_wait *wait;
+	} *args = arg;
+	assert(args);
+	struct coro_cnd_impl *impl = args->impl;
+	assert(impl);
+	struct coro_cnd_wait *wait = args->wait;
+	assert(wait);
+
+	wait->mtx_wait.coro = coro;
+	dllist_push_back(&impl->queue, &wait->node);
+#if !LELY_NO_THREADS
+	mtx_unlock(&impl->mtx);
+#endif
+}
+
+static void
+coro_cnd_timedwait_suspend_func_l(coro_t coro, void *arg)
+{
+	assert(coro);
+	struct {
+		struct coro_cnd_impl *impl;
+		struct coro_cnd_wait *cond_wait;
+		struct coro_thrd_wait *thrd_wait;
+	} *args = arg;
+	assert(args);
+	struct coro_cnd_impl *impl = args->impl;
+	assert(impl);
+	struct coro_cnd_wait *cond_wait = args->cond_wait;
+	assert(cond_wait);
+	struct coro_thrd_wait *thrd_wait = args->thrd_wait;
+	assert(thrd_wait);
+	struct coro_thrd *thr = thrd_wait->thr;
+	assert(thr);
+
+	cond_wait->mtx_wait.coro = coro;
+	dllist_push_back(&impl->queue, &cond_wait->node);
+#if !LELY_NO_THREADS
+	mtx_unlock(&impl->mtx);
+
+	mtx_lock(&thr->mtx);
+#endif
+	pheap_insert(&thr->heap, &thrd_wait->node);
+#if !LELY_NO_THREADS
+	mtx_unlock(&thr->mtx);
+#endif
+}
+
+static void
+coro_cnd_timedwait_wait_func(void *arg)
+{
+	struct coro_cnd_wait **pwaiting = arg;
+	assert(pwaiting);
+	struct coro_cnd_wait *wait = *pwaiting;
+	assert(wait);
+	assert(wait->cond);
+	struct coro_cnd_impl *impl = wait->cond->_impl;
+	assert(impl);
+
+	*pwaiting = NULL;
+
+#if !LELY_NO_THREADS
+	mtx_lock(&impl->mtx);
+#endif
+	// Check if the condition variable was signaled. If not, deregister the
+	// coroutine and lock the mutex.
+	if (!wait->signaled) {
+		dllist_remove(&impl->queue, &wait->node);
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+#endif
+		coro_mtx_wait_lock(&wait->mtx_wait);
+#if !LELY_NO_THREADS
+	} else {
+		mtx_unlock(&impl->mtx);
+#endif
+	}
 }

@@ -30,6 +30,7 @@
 #include <lely/util/error.hpp>
 #include <lely/util/exception.hpp>
 #include <lely/util/invoker.hpp>
+#include <lely/util/mutex.hpp>
 #include <lely/util/stop.hpp>
 
 #include <exception>
@@ -347,6 +348,352 @@ sleep_until(const ::std::chrono::time_point<Clock, Duration>& sleep_time) {
 }
 
 }  // namespace this_coro
+
+namespace detail {
+
+inline void
+throw_coroutine_error(const char* what_arg, int ev) {
+  switch (ev) {
+    case coro_success:
+      break;
+    case coro_error:
+      util::throw_errc(what_arg);
+    case coro_timedout:
+      throw_or_abort(::std::system_error(
+          ::std::make_error_code(::std::errc::timed_out), what_arg));
+    case coro_busy:
+      throw_or_abort(::std::system_error(
+          ::std::make_error_code(::std::errc::resource_unavailable_try_again),
+          what_arg));
+    case coro_nomem:
+      throw_or_abort(::std::system_error(
+          ::std::make_error_code(::std::errc::not_enough_memory), what_arg));
+  }
+}
+
+/// The base class for mutexes suitable for use in coroutines.
+class CoroutineMutexBase {
+ public:
+  using native_handle_type = coro_mtx_t*;
+
+  CoroutineMutexBase() = default;
+
+  CoroutineMutexBase(const CoroutineMutexBase&) = delete;
+  CoroutineMutexBase(CoroutineMutexBase&& other) = delete;
+
+  CoroutineMutexBase& operator=(const CoroutineMutexBase&) = delete;
+  CoroutineMutexBase& operator=(CoroutineMutexBase&& other) = delete;
+
+  ~CoroutineMutexBase() { coro_mtx_destroy(native_handle()); }
+
+  operator coro_mtx_t*() noexcept { return &mtx_; }
+
+  /// @see coro_mtx_lock()
+  void
+  lock() {
+    int ev = coro_mtx_lock(native_handle());
+    if (ev != coro_success) detail::throw_coroutine_error("lock", ev);
+  }
+
+  /// @see coro_mtx_trylock()
+  bool
+  try_lock() {
+    int ev = coro_mtx_trylock(native_handle());
+    switch (ev) {
+      case coro_success:
+        return true;
+      case coro_busy:
+        return false;
+      default:
+        detail::throw_coroutine_error("try_lock", ev);
+        return false;
+    }
+  }
+
+  /// @see coro_mtx_unlock()
+  void
+  unlock() {
+    int ev = coro_mtx_unlock(native_handle());
+    if (ev != coro_success) detail::throw_coroutine_error("unlock", ev);
+  }
+
+  native_handle_type
+  native_handle() noexcept {
+    return &mtx_;
+  }
+
+ private:
+  coro_mtx_t mtx_{nullptr};
+};
+
+}  // namespace detail
+
+/// A plain mutex suitable for use in coroutines.
+class CoroutineMutex : public detail::CoroutineMutexBase {
+ public:
+  CoroutineMutex() {
+    int ev = coro_mtx_init(native_handle(), coro_mtx_plain);
+    if (ev != coro_success) detail::throw_coroutine_error("CoroutineMutex", ev);
+  }
+};
+
+/// A timed mutex suitable for use in coroutines.
+class CoroutineTimedMutex : public detail::CoroutineMutexBase {
+ public:
+  CoroutineTimedMutex() {
+    int ev = coro_mtx_init(native_handle(), coro_mtx_timed);
+    if (ev != coro_success)
+      detail::throw_coroutine_error("CoroutineTimedMutex", ev);
+  }
+
+  /// @see coro_mtx_timedlock()
+  template <class Rep, class Period>
+  bool
+  try_lock_for(const std::chrono::duration<Rep, Period>& rel_time) {
+    return try_lock_until(::std::chrono::system_clock::now() + rel_time);
+  }
+
+  /// @see coro_mtx_timedlock()
+  template <class Clock, class Duration>
+  bool
+  try_lock_until(const std::chrono::time_point<Clock, Duration>& abs_time) {
+    const auto ts = util::to_timespec(
+        compat::clock_cast<::std::chrono::system_clock>(abs_time));
+    return coro_mtx_timedlock(native_handle(), &ts) == coro_success;
+  }
+};
+
+/// A recursive mutex suitable for use in coroutines.
+class CoroutineRecursiveMutex : public detail::CoroutineMutexBase {
+ public:
+  CoroutineRecursiveMutex() {
+    int ev = coro_mtx_init(native_handle(), coro_mtx_recursive);
+    if (ev != coro_success)
+      detail::throw_coroutine_error("CoroutineRecursiveMutex", ev);
+  }
+};
+
+/// A timed and recursive mutex suitable for use in coroutines.
+class CoroutineTimedRecursiveMutex : public detail::CoroutineMutexBase {
+ public:
+  CoroutineTimedRecursiveMutex() {
+    int ev =
+        coro_mtx_init(native_handle(), coro_mtx_timed | coro_mtx_recursive);
+    if (ev != coro_success)
+      detail::throw_coroutine_error("CoroutineRecursiveMutex", ev);
+  }
+
+  /// @see coro_mtx_timedlock()
+  template <class Rep, class Period>
+  bool
+  try_lock_for(const std::chrono::duration<Rep, Period>& rel_time) {
+    return try_lock_until(::std::chrono::system_clock::now() + rel_time);
+  }
+
+  /// @see coro_mtx_timedlock()
+  template <class Clock, class Duration>
+  bool
+  try_lock_until(const std::chrono::time_point<Clock, Duration>& abs_time) {
+    const auto ts = util::to_timespec(
+        compat::clock_cast<::std::chrono::system_clock>(abs_time));
+    return coro_mtx_timedlock(native_handle(), &ts) == coro_success;
+  }
+};
+
+enum class cv_status { no_timeout, timeout };
+
+/// A condition variable suitable for use in coroutines.
+class CoroutineConditionVariable {
+ public:
+  using native_handle_type = coro_cnd_t*;
+
+  CoroutineConditionVariable() {
+    if (coro_cnd_init(native_handle()) != coro_success)
+      ::lely::util::throw_errc("CoroutineConditionVariable");
+  }
+
+  CoroutineConditionVariable(const CoroutineConditionVariable&) = delete;
+  CoroutineConditionVariable(CoroutineConditionVariable&& other) = delete;
+
+  CoroutineConditionVariable& operator=(const CoroutineConditionVariable&) =
+      delete;
+  CoroutineConditionVariable& operator=(CoroutineConditionVariable&& other) =
+      delete;
+
+  ~CoroutineConditionVariable() { coro_cnd_destroy(native_handle()); }
+
+  /// @see coro_cnd_signal()
+  void
+  notify_one() noexcept {
+    coro_cnd_signal(native_handle());
+  }
+
+  /// @see coro_cnd_broadcast()
+  void
+  notify_all() noexcept {
+    coro_cnd_broadcast(native_handle());
+  }
+
+  /// @see coro_cnd_wait()
+  void
+  wait(::std::unique_lock<CoroutineMutex>& lock) {
+    int ev = coro_cnd_wait(native_handle(), lock.mutex()->native_handle());
+    if (ev != coro_success) detail::throw_coroutine_error("wait", ev);
+  }
+
+  /// @see coro_cnd_wait()
+  template <class Predicate>
+  void
+  wait(::std::unique_lock<CoroutineMutex>& lock, Predicate pred) {
+    while (!pred()) wait(lock);
+  }
+
+  /// @see coro_cnd_timedwait()
+  template <class Clock, class Duration>
+  cv_status
+  wait_until(::std::unique_lock<CoroutineMutex>& lock,
+             const std::chrono::time_point<Clock, Duration>& abs_time) {
+    const auto ts = util::to_timespec(
+        compat::clock_cast<::std::chrono::system_clock>(abs_time));
+    return coro_cnd_timedwait(native_handle(), lock.mutex()->native_handle(),
+                              &ts) == coro_timedout
+               ? cv_status::timeout
+               : cv_status::no_timeout;
+  }
+
+  /// @see coro_cnd_timedwait()
+  template <class Clock, class Duration, class Predicate>
+  bool
+  wait_until(::std::unique_lock<CoroutineMutex>& lock,
+             const ::std::chrono::time_point<Clock, Duration>& abs_time,
+             Predicate pred) {
+    while (!pred()) {
+      if (wait_until(lock, abs_time) == cv_status::timeout) return pred();
+    }
+    return true;
+  }
+
+  /// @see coro_cnd_timedwait()
+  template <class Rep, class Period>
+  cv_status
+  wait_for(::std::unique_lock<CoroutineMutex>& lock,
+           const ::std::chrono::duration<Rep, Period>& rel_time) {
+    return wait_until(lock, ::std::chrono::system_clock::now() + rel_time);
+  }
+
+  /// @see coro_cnd_timedwait()
+  template <class Rep, class Period, class Predicate>
+  bool
+  wait_for(::std::unique_lock<CoroutineMutex>& lock,
+           const ::std::chrono::duration<Rep, Period>& rel_time,
+           Predicate pred) {
+    return wait_until(lock, ::std::chrono::system_clock::now() + rel_time,
+                      ::std::move(pred));
+  }
+
+  native_handle_type
+  native_handle() noexcept {
+    return &cond_;
+  }
+
+ private:
+  coro_cnd_t cond_{nullptr};
+};
+
+/**
+ * A generalization of #lely::util::CoroutineConditionVariable capable of
+ * operating on any lock that meets the BasicLockable requirements.
+ */
+class CoroutineConditionVariableAny {
+ public:
+  CoroutineConditionVariableAny() = default;
+
+  CoroutineConditionVariableAny(const CoroutineConditionVariableAny&) = delete;
+  CoroutineConditionVariableAny(CoroutineConditionVariableAny&& other) = delete;
+
+  CoroutineConditionVariableAny& operator=(
+      const CoroutineConditionVariableAny&) = delete;
+  CoroutineConditionVariableAny& operator=(
+      CoroutineConditionVariableAny&& other) = delete;
+
+  ~CoroutineConditionVariableAny() = default;
+
+  /// @see coro_cnd_signal()
+  void
+  notify_one() noexcept {
+    ::std::lock_guard<CoroutineMutex> lock(mtx_);
+    cond_.notify_one();
+  }
+
+  /// @see coro_cnd_broadcast()
+  void
+  notify_all() noexcept {
+    ::std::lock_guard<CoroutineMutex> lock(mtx_);
+    cond_.notify_all();
+  }
+
+  /// @see coro_cnd_wait()
+  template <class Lock>
+  void
+  wait(Lock& lock) {
+    ::std::unique_lock<CoroutineMutex> lock1(mtx_);
+    UnlockGuard<Lock> unlock(lock);
+    ::std::unique_lock<CoroutineMutex> lock2(::std::move(lock1));
+    cond_.wait(lock2);
+  }
+
+  /// @see coro_cnd_wait()
+  template <class Lock, class Predicate>
+  void
+  wait(Lock& lock, Predicate pred) {
+    while (!pred()) wait(lock);
+  }
+
+  /// @see coro_cnd_timedwait()
+  template <class Lock, class Clock, class Duration>
+  cv_status
+  wait_until(Lock& lock,
+             const std::chrono::time_point<Clock, Duration>& abs_time) {
+    ::std::unique_lock<CoroutineMutex> lock1(mtx_);
+    UnlockGuard<Lock> unlock(lock);
+    ::std::unique_lock<CoroutineMutex> lock2(::std::move(lock1));
+    return cond_.wait_until(lock2, abs_time);
+  }
+
+  /// @see coro_cnd_timedwait()
+  template <class Lock, class Clock, class Duration, class Predicate>
+  bool
+  wait_until(Lock& lock,
+             const std::chrono::time_point<Clock, Duration>& abs_time,
+             Predicate pred) {
+    while (!pred()) {
+      if (wait_until(lock, abs_time) == cv_status::timeout) return pred();
+    }
+    return true;
+  }
+
+  /// @see coro_cnd_timedwait()
+  template <class Rep, class Period>
+  cv_status
+  wait_for(::std::unique_lock<CoroutineMutex>& lock,
+           const ::std::chrono::duration<Rep, Period>& rel_time) {
+    return wait_until(lock, ::std::chrono::system_clock::now() + rel_time);
+  }
+
+  /// @see coro_cnd_timedwait()
+  template <class Rep, class Period, class Predicate>
+  bool
+  wait_for(::std::unique_lock<CoroutineMutex>& lock,
+           const ::std::chrono::duration<Rep, Period>& rel_time,
+           Predicate pred) {
+    return wait_until(lock, ::std::chrono::system_clock::now() + rel_time,
+                      ::std::move(pred));
+  }
+
+ private:
+  CoroutineConditionVariable cond_;
+  CoroutineMutex mtx_;
+};
 
 }  // namespace util
 }  // namespace lely
