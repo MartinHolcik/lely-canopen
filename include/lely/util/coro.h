@@ -144,6 +144,12 @@ typedef struct {
 	void *_impl;
 } coro_cnd_t;
 
+/**
+ * A complete object type that holds an identifier for a coroutine-specific
+ * storage pointer.
+ */
+typedef void *css_t;
+
 /// An abstract coroutine scheduler factory.
 typedef const struct coro_sched_ctor_vtbl *const coro_sched_ctor_t;
 
@@ -159,6 +165,12 @@ extern "C" {
  * coroutine.
  */
 typedef int (*coro_start_t)(void *);
+
+/**
+ * The function pointer type used for a destructor for a coroutine-specific
+ * storage pointer.
+ */
+typedef void (*css_dtor_t)(void *);
 
 /**
  * Initializes the coroutine associated with the calling thread, as well as the
@@ -492,6 +504,44 @@ int coro_cnd_wait(coro_cnd_t *cond, coro_mtx_t *mtx);
  */
 int coro_cnd_timedwait(
 		coro_cnd_t *cond, coro_mtx_t *mtx, const struct timespec *ts);
+
+/**
+ * Creates a coroutine-specific storage pointer with destructor <b>dtor</b>,
+ * which may be NULL.
+ *
+ * If this function is successful, it sets the coroutine-specific storage at
+ * <b>key</b> to a value that uniquely identifies the newly created pointer;
+ * otherwise, the coroutine-specific storage at <b>key</b> is set to an
+ * undefined value.
+ *
+ * @returns #coro_success on success, or #coro_error if the request could not be
+ * honored.
+ */
+int css_create(css_t *key, css_dtor_t dtor);
+
+/**
+ * Releases any resources used by the coroutine-specific storage identified by
+ * <b>key</b>.
+ */
+void css_delete(css_t key);
+
+/**
+ * Returns the value for the current coroutine held in the coroutine-specific
+ * storage identified by <b>key</b>.
+ *
+ * @returns the value for the current coroutine if successful, or NULL if
+ * unsuccessful.
+ */
+void *css_get(css_t key);
+
+/**
+ * Sets the value for the current coroutine held in the coroutine-specific
+ * storage identified by <b>key</b> to <b>val</b>.
+ *
+ * @returns #coro_success on success, or #coro_nomem if the request could not be
+ * honored.
+ */
+int css_set(css_t key, void *val);
 
 #ifdef __cplusplus
 }

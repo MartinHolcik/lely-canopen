@@ -25,12 +25,14 @@
 #if !LELY_NO_THREADS
 #include <lely/libc/threads.h>
 #endif
+#include <lely/util/cmp.h>
 #include <lely/util/coro.h>
 #include <lely/util/coro_sched.h>
 #include <lely/util/dllist.h>
 #include <lely/util/errnum.h>
 #include <lely/util/fiber.h>
 #include <lely/util/pheap.h>
+#include <lely/util/rbtree.h>
 #include <lely/util/time.h>
 #include <lely/util/util.h>
 
@@ -92,6 +94,11 @@ struct coro_impl {
 	unsigned detached : 1;
 	/// A pointer to the coroutine joining with this coroutine.
 	struct coro_impl *joined;
+	/**
+	 * The tree containing all coroutine-specific storage values for this
+	 * coroutine.
+	 */
+	struct rbtree tree;
 };
 
 static fiber_t *coro_impl_fiber_func_l(fiber_t *fiber, void *arg);
@@ -103,6 +110,12 @@ static struct coro_impl *coro_impl_init(struct coro_impl *impl,
 static void coro_impl_fini(struct coro_impl *impl);
 
 static void coro_impl_destroy(struct coro_impl *impl);
+
+/**
+ * Runs the destructors for all coroutine-specific storage values owned by a
+ * coroutine.
+ */
+static void coro_impl_css_dtor(struct coro_impl *impl);
 
 #if LELY_NO_THREADS
 static struct coro_thrd {
@@ -236,6 +249,33 @@ static void coro_cnd_wait_suspend_func_l(coro_t coro, void *arg);
 static void coro_cnd_timedwait_suspend_func_l(coro_t coro, void *arg);
 static void coro_cnd_timedwait_wait_func(void *arg);
 
+/// A coroutine-specific storage key.
+struct css_key {
+	/// The destructor coroutine-specific storage values bound to this key.
+	css_dtor_t dtor;
+#if !LELY_NO_THREADS
+	/// The mutex protecting #list.
+	mtx_t mtx;
+#endif
+	/**
+	 * The list containing all coroutine-specific storage values bound to
+	 * this key.
+	 */
+	struct dllist list;
+};
+
+/// A coroutine-specific storage value.
+struct css_val {
+	/// A pointer to the value.
+	void *val;
+	/// A pointer to the coroutine owning this value.
+	struct coro_impl *coro;
+	/// The node of this value in the tree of *#coro.
+	struct rbnode rbnode;
+	/// The node of this value in the list of the key.
+	struct dlnode dlnode;
+};
+
 int
 coro_thrd_init(const struct coro_attr *attr, coro_sched_ctor_t *ctor)
 {
@@ -338,6 +378,8 @@ coro_thrd_fini(void)
 	assert(thr->curr == &thr->main);
 
 	if (!--thr->refcnt) {
+		coro_impl_css_dtor(thr->curr);
+
 		fiber_destroy(thr->fiber);
 		thr->fiber = NULL;
 
@@ -544,6 +586,9 @@ coro_exit(int res)
 
 	if (thr->curr && thr->curr != &thr->main) {
 		thr->curr->res = res;
+
+		coro_impl_css_dtor(thr->curr);
+
 		// Suspend the coroutine before destroying it.
 		coro_suspend_with(&coro_exit_suspend_func, NULL);
 	}
@@ -1065,6 +1110,153 @@ coro_cnd_timedwait(coro_cnd_t *cond, coro_mtx_t *mtx, const struct timespec *ts)
 	}
 }
 
+int
+css_create(css_t *key, css_dtor_t dtor)
+{
+	assert(key);
+
+	int errc = 0;
+
+	struct css_key *impl = malloc(sizeof(*impl));
+	if (!impl) {
+		errc = errno2c(errno);
+		goto error_malloc_impl;
+	}
+
+	impl->dtor = dtor;
+
+#if !LELY_NO_THREADS
+	if (mtx_init(&impl->mtx, mtx_plain) != thrd_success) {
+		errc = get_errc();
+		goto error_init_mtx;
+	}
+#endif
+	dllist_init(&impl->list);
+
+	*key = impl;
+
+	return coro_success;
+
+#if !LELY_NO_THREADS
+	// mtx_destroy(&impl->mtx);
+error_init_mtx:
+#endif
+	free(impl);
+error_malloc_impl:
+	set_errc(errc);
+	*key = NULL;
+	return coro_error;
+}
+
+void
+css_delete(css_t key)
+{
+	struct css_key *key_impl = key;
+	assert(key_impl);
+
+	// Remove the values from the coroutines. We do not need to lock the
+	// mutex, since it is undefined behavior to use the key after this
+	// function has been called.
+	struct dlnode *dlnode;
+	while ((dlnode = dllist_pop_front(&key_impl->list))) {
+		struct css_val *val_impl =
+				structof(dlnode, struct css_val, dlnode);
+		assert(val_impl->coro);
+#if !LELY_NO_THREADS
+		mtx_lock(&val_impl->coro->mtx);
+#endif
+		rbtree_remove(&val_impl->coro->tree, &val_impl->rbnode);
+#if !LELY_NO_THREADS
+		mtx_unlock(&val_impl->coro->mtx);
+#endif
+	}
+
+#if !LELY_NO_THREADS
+	mtx_destroy(&key_impl->mtx);
+#endif
+	free(key_impl);
+}
+
+void *
+css_get(css_t key)
+{
+	struct coro_impl *impl = coro_impl_from_coro(coro_current());
+
+#if !LELY_NO_THREADS
+	mtx_lock(&impl->mtx);
+#endif
+	struct rbnode *rbnode = rbtree_find(&impl->tree, key);
+#if !LELY_NO_THREADS
+	mtx_unlock(&impl->mtx);
+#endif
+	return rbnode ? structof(rbnode, struct css_val, rbnode)->val : NULL;
+}
+
+int
+css_set(css_t key, void *val)
+{
+	struct coro_impl *impl = coro_impl_from_coro(coro_current());
+	struct css_key *key_impl = key;
+	assert(key_impl);
+
+#if !LELY_NO_THREADS
+	mtx_lock(&impl->mtx);
+#endif
+	struct rbnode *rbnode = rbtree_find(&impl->tree, key);
+	if (rbnode) {
+		struct css_val *val_impl =
+				structof(rbnode, struct css_val, rbnode);
+		if (val) {
+#if !LELY_NO_THREADS
+			mtx_unlock(&impl->mtx);
+#endif
+			val_impl->val = val;
+		} else {
+			rbtree_remove(&impl->tree, rbnode);
+#if !LELY_NO_THREADS
+			mtx_unlock(&impl->mtx);
+			mtx_lock(&key_impl->mtx);
+#endif
+			dllist_remove(&key_impl->list, &val_impl->dlnode);
+#if !LELY_NO_THREADS
+			mtx_unlock(&key_impl->mtx);
+#endif
+			free(val_impl);
+		}
+	} else if (val) {
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+#endif
+		struct css_val *val_impl = malloc(sizeof(*val_impl));
+		if (!val_impl) {
+			set_errc(errno2c(errno));
+			return coro_nomem;
+		}
+		val_impl->val = val;
+		val_impl->coro = impl;
+		rbnode_init(&val_impl->rbnode, key);
+		dlnode_init(&val_impl->dlnode);
+#if !LELY_NO_THREADS
+		mtx_lock(&impl->mtx);
+#endif
+		rbtree_insert(&impl->tree, &val_impl->rbnode);
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+		mtx_lock(&key_impl->mtx);
+#endif
+		dllist_push_back(&key_impl->list, &val_impl->dlnode);
+#if !LELY_NO_THREADS
+		mtx_unlock(&key_impl->mtx);
+#endif
+#if !LELY_NO_THREADS
+	} else {
+		mtx_unlock(&impl->mtx);
+#endif
+	}
+
+	return coro_success;
+}
+
 static inline struct coro_impl *
 coro_impl_from_coro(coro_t coro)
 {
@@ -1112,6 +1304,8 @@ coro_impl_init(struct coro_impl *impl, const struct coro_attr *attr,
 	impl->detached = 0;
 	impl->joined = NULL;
 
+	rbtree_init(&impl->tree, &ptr_cmp);
+
 	return impl;
 }
 
@@ -1137,6 +1331,46 @@ coro_impl_destroy(struct coro_impl *impl)
 		coro_impl_fini(impl);
 		fiber_destroy(impl->fiber);
 	}
+}
+
+static void
+coro_impl_css_dtor(struct coro_impl *impl)
+{
+	assert(impl);
+
+#if !LELY_NO_THREADS
+	mtx_lock(&impl->mtx);
+#endif
+	struct rbnode *rbnode;
+	while ((rbnode = rbtree_root(&impl->tree))) {
+		rbtree_remove(&impl->tree, rbnode);
+#if !LELY_NO_THREADS
+		mtx_unlock(&impl->mtx);
+#endif
+		struct css_key *key_impl = (css_t)rbnode->key;
+		struct css_val *val_impl =
+				structof(rbnode, struct css_val, rbnode);
+#if !LELY_NO_THREADS
+		mtx_lock(&key_impl->mtx);
+#endif
+		dllist_remove(&key_impl->list, &val_impl->dlnode);
+#if !LELY_NO_THREADS
+		mtx_unlock(&key_impl->mtx);
+#endif
+		css_dtor_t dtor = key_impl->dtor;
+		void *val = val_impl->val;
+		free(val_impl);
+		if (dtor) {
+			assert(val);
+			dtor(val);
+		}
+#if !LELY_NO_THREADS
+		mtx_lock(&impl->mtx);
+#endif
+	}
+#if !LELY_NO_THREADS
+	mtx_unlock(&impl->mtx);
+#endif
 }
 
 static fiber_t *
