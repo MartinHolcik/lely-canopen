@@ -9,6 +9,7 @@ src += daemon.c
 endif
 src += fiber.c
 src += mkjmp.c
+src += rand.c
 src += sllist.c
 src += spscring.c
 src += stop.c

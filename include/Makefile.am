@@ -64,6 +64,10 @@ inc += lely/util/mkjmp.h
 if !NO_CXX
 inc += lely/util/mutex.hpp
 endif
+inc += lely/util/rand.h
+if !NO_CXX
+inc += lely/util/rand.hpp
+endif
 if !NO_CXX
 inc += lely/util/result.hpp
 endif
