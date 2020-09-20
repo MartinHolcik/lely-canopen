@@ -67,6 +67,8 @@ coro_sched_ctor_t *coro_sched_rr_ctor(void);
 
 coro_sched_ctor_t *coro_sched_sw_ctor(void);
 
+coro_sched_ctor_t *coro_sched_ws_ctor(size_t nsteal);
+
 inline coro_sched_t *
 coro_sched_create(coro_sched_ctor_t *ctor)
 {

@@ -8,6 +8,7 @@ src += coro.c
 src += coro_sched.c
 src += coro_sched_rr.c
 src += coro_sched_sw.c
+src += coro_sched_ws.c
 if !NO_DAEMON
 src += daemon.c
 endif
