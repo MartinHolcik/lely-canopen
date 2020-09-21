@@ -37,6 +37,11 @@ inc += lely/util/c_call.hpp
 inc += lely/util/c_type.hpp
 inc += lely/util/chrono.hpp
 endif
+inc += lely/util/coro.h
+if !NO_CXX
+inc += lely/util/coro.hpp
+endif
+inc += lely/util/coro_sched.h
 inc += lely/util/coroutine.h
 if !NO_CXX
 inc += lely/util/coroutine.hpp
