@@ -63,6 +63,8 @@ LELY_UTIL_CORO_SCHED_INLINE void coro_sched_wait(
 		coro_sched_t *, const struct timespec *ts);
 LELY_UTIL_CORO_SCHED_INLINE void coro_sched_signal(coro_sched_t *sched);
 
+coro_sched_ctor_t *coro_sched_rr_ctor(void);
+
 inline coro_sched_t *
 coro_sched_create(coro_sched_ctor_t *ctor)
 {

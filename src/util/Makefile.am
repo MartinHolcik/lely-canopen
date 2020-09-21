@@ -6,6 +6,7 @@ src += config.c
 src += config_ini.c
 src += coro.c
 src += coro_sched.c
+src += coro_sched_rr.c
 if !NO_DAEMON
 src += daemon.c
 endif

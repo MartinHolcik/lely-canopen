@@ -169,7 +169,6 @@ int
 coro_thrd_init(const struct coro_attr *attr, coro_sched_ctor_t *ctor)
 {
 	struct coro_thrd *thr = &coro_thrd;
-	assert(ctor);
 
 	if (thr->refcnt++)
 		return 1;
@@ -204,7 +203,8 @@ coro_thrd_init(const struct coro_attr *attr, coro_sched_ctor_t *ctor)
 	coro_attr.save_fenv = fiber_attr.save_fenv;
 	coro_attr.save_error = fiber_attr.save_error;
 
-	thr->ctor = ctor;
+	thr->ctor = ctor ? ctor : coro_sched_rr_ctor();
+	assert(thr->ctor);
 
 	thr->curr = &thr->main;
 
