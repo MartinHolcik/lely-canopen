@@ -329,7 +329,6 @@ class BasicSlave : public Node {
    * object dictionary.
    */
   class ConstSubObject {
-    friend class Object;
     friend class ConstObject;
 
    public:
@@ -461,24 +460,8 @@ class BasicSlave : public Node {
      * dictionary.
      */
     SubObject
-    operator[](uint8_t subidx) noexcept {
-      return SubObject(slave_, id_, idx_, subidx);
-    }
-
-    /**
-     * Returns an accessor object that provides read-only access to the
-     * specified CANopen sub-object in the local object dictionary (or the
-     * TPDO-mapped sub-object in the remote object dictionary). Note that this
-     * function succeeds even if the object does not exist.
-     *
-     * @param subidx the object sub-index.
-     *
-     * @returns an accessor object for a CANopen sub-object in the local object
-     * dictionary.
-     */
-    ConstSubObject
     operator[](uint8_t subidx) const noexcept {
-      return ConstSubObject(slave_, id_, idx_, subidx, false);
+      return SubObject(slave_, id_, idx_, subidx);
     }
 
    private:
@@ -497,10 +480,8 @@ class BasicSlave : public Node {
    * object dictionary.
    */
   class ConstObject {
-    friend class Local;
     friend class ConstLocal;
     friend class RpdoMapped;
-    friend class TpdoMapped;
 
    public:
     /**
@@ -552,23 +533,8 @@ class BasicSlave : public Node {
      * dictionary.
      */
     Object
-    operator[](::std::ptrdiff_t idx) noexcept {
-      return Object(slave_, idx);
-    }
-
-    /**
-     * Returns an accessor object that provides read-only access to the
-     * specified CANopen object in the local object dictionary. Note that this
-     * function succeeds even if the object does not exist.
-     *
-     * @param idx the object index.
-     *
-     * @returns an accessor object for a CANopen object in the local object
-     * dictionary.
-     */
-    ConstObject
     operator[](::std::ptrdiff_t idx) const noexcept {
-      return ConstObject(slave_, idx);
+      return Object(slave_, idx);
     }
 
    private:
@@ -656,23 +622,8 @@ class BasicSlave : public Node {
      * dictionary.
      */
     Object
-    operator[](uint16_t idx) noexcept {
-      return Object(slave_, id_, idx);
-    }
-
-    /**
-     * Returns an accessor object that provides read-only access to the
-     * specified TPDO-mapped object in the remote object dictionary. Note that
-     * this function succeeds even if the object does not exist.
-     *
-     * @param idx the object index.
-     *
-     * @returns an accessor object for a CANopen object in the remote object
-     * dictionary.
-     */
-    ConstObject
     operator[](uint16_t idx) const noexcept {
-      return ConstObject(slave_, id_, idx, false);
+      return Object(slave_, id_, idx);
     }
 
    private:

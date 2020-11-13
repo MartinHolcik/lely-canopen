@@ -375,13 +375,13 @@ class BasicLogicalDriver<BasicDriver> : LogicalDriverBase {
     friend class BasicLogicalDriver;
 
    public:
-    BasicMaster::ConstObject operator[](uint16_t idx) const {
+    BasicMaster::ConstObject
+    operator[](uint16_t idx) const {
       return self_.driver.rpdo_mapped[self_.ObjectIndex(idx)];
     }
 
    private:
-    explicit RpdoMapped(BasicLogicalDriver& self) noexcept
-        : self_(self) {}
+    explicit RpdoMapped(BasicLogicalDriver& self) noexcept : self_(self) {}
 
     BasicLogicalDriver& self_;
   } rpdo_mapped;
@@ -390,13 +390,9 @@ class BasicLogicalDriver<BasicDriver> : LogicalDriverBase {
     friend class BasicLogicalDriver;
 
    public:
-    BasicMaster::Object operator[](uint16_t idx) {
+    BasicMaster::Object
+    operator[](uint16_t idx) const {
       return self_.driver.tpdo_mapped[self_.ObjectIndex(idx)];
-    }
-
-    BasicMaster::ConstObject operator[](uint16_t idx) const {
-      const auto& tpdo_mapped = self_.driver.tpdo_mapped;
-      return tpdo_mapped[self_.ObjectIndex(idx)];
     }
 
    private:
@@ -455,8 +451,8 @@ class BasicLogicalDriver<BasicDriver> : LogicalDriverBase {
   OnSyncError(uint16_t /*eec*/, uint8_t /*er*/) noexcept override {}
 
   void
-  OnTime(const ::std::chrono::system_clock::
-             time_point& /*abs_time*/) noexcept override {}
+  OnTime(const ::std::chrono::system_clock::time_point& /*abs_time*/) noexcept
+      override {}
 
   void
   OnEmcy(uint16_t /*eec*/, uint8_t /*er*/,

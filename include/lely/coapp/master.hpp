@@ -271,7 +271,6 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
    * object dictionary.
    */
   class ConstSubObject {
-    friend class Object;
     friend class ConstObject;
 
    public:
@@ -374,24 +373,8 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
      * dictionary.
      */
     SubObject
-    operator[](uint8_t subidx) noexcept {
-      return SubObject(master_, id_, idx_, subidx);
-    }
-
-    /**
-     * Returns an accessor object that provides read-only access to the
-     * specified CANopen sub-object in the local object dictionary (or the
-     * TPDO-mapped sub-object in the remote object dictionary). Note that this
-     * function succeeds even if the object does not exist.
-     *
-     * @param subidx the object sub-index.
-     *
-     * @returns an accessor object for a CANopen sub-object in the local object
-     * dictionary.
-     */
-    ConstSubObject
     operator[](uint8_t subidx) const noexcept {
-      return ConstSubObject(master_, id_, idx_, subidx, false);
+      return SubObject(master_, id_, idx_, subidx);
     }
 
    private:
@@ -411,10 +394,8 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
    * object dictionary.
    */
   class ConstObject {
-    friend class Local;
     friend class ConstLocal;
     friend class RpdoMapped;
-    friend class TpdoMapped;
 
    public:
     /**
@@ -466,23 +447,8 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
      * dictionary.
      */
     Object
-    operator[](::std::ptrdiff_t idx) noexcept {
-      return Object(master_, idx);
-    }
-
-    /**
-     * Returns an accessor object that provides read-only access to the
-     * specified CANopen object in the local object dictionary. Note that this
-     * function succeeds even if the object does not exist.
-     *
-     * @param idx the object index.
-     *
-     * @returns an accessor object for a CANopen object in the local object
-     * dictionary.
-     */
-    ConstObject
     operator[](::std::ptrdiff_t idx) const noexcept {
-      return ConstObject(master_, idx);
+      return Object(master_, idx);
     }
 
    private:
@@ -570,23 +536,8 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
      * dictionary.
      */
     Object
-    operator[](uint16_t idx) noexcept {
-      return Object(master_, id_, idx);
-    }
-
-    /**
-     * Returns an accessor object that provides read-only access to the
-     * specified TPDO-mapped object in the remote object dictionary. Note that
-     * this function succeeds even if the object does not exist.
-     *
-     * @param idx the object index.
-     *
-     * @returns an accessor object for a CANopen object in the remote object
-     * dictionary.
-     */
-    ConstObject
     operator[](uint16_t idx) const noexcept {
-      return ConstObject(master_, id_, idx, false);
+      return Object(master_, id_, idx);
     }
 
    private:
