@@ -75,6 +75,8 @@ BasicSlave::BasicSlave(ev_exec_t* exec, io::TimerBase& timer,
                        io::CanChannelBase& chan, const ::std::string& dcf_txt,
                        const ::std::string& dcf_bin, uint8_t id)
     : Node(exec, timer, chan, dcf_txt, dcf_bin, id),
+      local(this),
+      const_local(this),
       impl_(new Impl_(this, Node::nmt())) {}
 
 BasicSlave::~BasicSlave() = default;

@@ -435,6 +435,8 @@ class BasicSlave : public Node {
     uint8_t is_rpdo_ : 1;
   };
 
+  class Local;
+  class ConstLocal;
   class RpdoMapped;
   class TpdoMapped;
 
@@ -443,8 +445,8 @@ class BasicSlave : public Node {
    * dictionary.
    */
   class Object {
-    class Mapped;
-    friend class BasicSlave;
+    friend class Local;
+    friend class TpdoMapped;
 
    public:
     /**
@@ -458,7 +460,8 @@ class BasicSlave : public Node {
      * @returns a mutator object for a CANopen sub-object in the local object
      * dictionary.
      */
-    SubObject operator[](uint8_t subidx) noexcept {
+    SubObject
+    operator[](uint8_t subidx) noexcept {
       return SubObject(slave_, id_, idx_, subidx);
     }
 
@@ -473,7 +476,8 @@ class BasicSlave : public Node {
      * @returns an accessor object for a CANopen sub-object in the local object
      * dictionary.
      */
-    ConstSubObject operator[](uint8_t subidx) const noexcept {
+    ConstSubObject
+    operator[](uint8_t subidx) const noexcept {
       return ConstSubObject(slave_, id_, idx_, subidx, false);
     }
 
@@ -493,9 +497,10 @@ class BasicSlave : public Node {
    * object dictionary.
    */
   class ConstObject {
-    class RpdoMapped;
-    class TpdoMapped;
-    friend class BasicSlave;
+    friend class Local;
+    friend class ConstLocal;
+    friend class RpdoMapped;
+    friend class TpdoMapped;
 
    public:
     /**
@@ -509,7 +514,8 @@ class BasicSlave : public Node {
      * @returns an accessor object for a CANopen sub-object in the local object
      * dictionary.
      */
-    ConstSubObject operator[](uint8_t subidx) const noexcept {
+    ConstSubObject
+    operator[](uint8_t subidx) const noexcept {
       return ConstSubObject(slave_, id_, idx_, subidx, is_rpdo_);
     }
 
@@ -525,6 +531,79 @@ class BasicSlave : public Node {
     uint16_t idx_;
     uint8_t id_ : 7;
     uint8_t is_rpdo_ : 1;
+  };
+
+  /**
+   * A mutator providing read/write access to objects in the local object
+   * dictionary.
+   */
+  class Local {
+    friend class BasicSlave;
+
+   public:
+    /**
+     * Returns a mutator object that provides read/write access to the specified
+     * CANopen object in the local object dictionary. Note that this function
+     * succeeds even if the object does not exist.
+     *
+     * @param idx the object index.
+     *
+     * @returns a mutator object for a CANopen object in the local object
+     * dictionary.
+     */
+    Object
+    operator[](::std::ptrdiff_t idx) noexcept {
+      return Object(slave_, idx);
+    }
+
+    /**
+     * Returns an accessor object that provides read-only access to the
+     * specified CANopen object in the local object dictionary. Note that this
+     * function succeeds even if the object does not exist.
+     *
+     * @param idx the object index.
+     *
+     * @returns an accessor object for a CANopen object in the local object
+     * dictionary.
+     */
+    ConstObject
+    operator[](::std::ptrdiff_t idx) const noexcept {
+      return ConstObject(slave_, idx);
+    }
+
+   private:
+    Local(BasicSlave* slave) noexcept : slave_(slave) {}
+
+    BasicSlave* slave_;
+  };
+
+  /**
+   * An accessor providing read-only access to objects in the local object
+   * dictionary.
+   */
+  class ConstLocal {
+    friend class BasicSlave;
+
+   public:
+    /**
+     * Returns an accessor object that provides read-only access to the
+     * specified CANopen object in the local object dictionary. Note that this
+     * function succeeds even if the object does not exist.
+     *
+     * @param idx the object index.
+     *
+     * @returns an accessor object for a CANopen object in the local object
+     * dictionary.
+     */
+    ConstObject
+    operator[](::std::ptrdiff_t idx) const noexcept {
+      return ConstObject(slave_, idx);
+    }
+
+   private:
+    ConstLocal(const BasicSlave* slave) noexcept : slave_(slave) {}
+
+    const BasicSlave* slave_;
   };
 
   /**
@@ -545,7 +624,8 @@ class BasicSlave : public Node {
      * @returns an accessor object for a CANopen object in the remote object
      * dictionary.
      */
-    ConstObject operator[](uint16_t idx) const noexcept {
+    ConstObject
+    operator[](uint16_t idx) const noexcept {
       return ConstObject(slave_, id_, idx, true);
     }
 
@@ -575,7 +655,8 @@ class BasicSlave : public Node {
      * @returns a mutator object for a CANopen object in the remote object
      * dictionary.
      */
-    Object operator[](uint16_t idx) noexcept {
+    Object
+    operator[](uint16_t idx) noexcept {
       return Object(slave_, id_, idx);
     }
 
@@ -589,7 +670,8 @@ class BasicSlave : public Node {
      * @returns an accessor object for a CANopen object in the remote object
      * dictionary.
      */
-    ConstObject operator[](uint16_t idx) const noexcept {
+    ConstObject
+    operator[](uint16_t idx) const noexcept {
       return ConstObject(slave_, id_, idx, false);
     }
 
@@ -653,7 +735,10 @@ class BasicSlave : public Node {
    * @returns a mutator object for a CANopen object in the local object
    * dictionary.
    */
-  Object operator[](::std::ptrdiff_t idx) noexcept { return Object(this, idx); }
+  Object
+  operator[](::std::ptrdiff_t idx) noexcept {
+    return Local()[idx];
+  }
 
   /**
    * Returns an accessor object that provides read-only access to the specified
@@ -665,8 +750,27 @@ class BasicSlave : public Node {
    * @returns an accessor object for a CANopen object in the local object
    * dictionary.
    */
-  ConstObject operator[](::std::ptrdiff_t idx) const noexcept {
-    return ConstObject(this, idx);
+  ConstObject
+  operator[](::std::ptrdiff_t idx) const noexcept {
+    return ConstLocal()[idx];
+  }
+
+  /**
+   * Returns a mutator object that provides read/write access to objects in the
+   * local object dictionary.
+   */
+  Local
+  Local() noexcept {
+    return {this};
+  }
+
+  /**
+   * Returns an accessor object that provides read-only access to objects in the
+   * local object dictionary.
+   */
+  ConstLocal
+  ConstLocal() const noexcept {
+    return {this};
   }
 
   /**
@@ -828,6 +932,22 @@ class BasicSlave : public Node {
   typename ::std::enable_if<is_canopen<T>::value>::type OnWrite(
       uint16_t idx, ::std::function<OnWriteSignature<T>> ind,
       ::std::error_code& ec);
+
+  /**
+   * A mutator providing read/write access to objects in the local object
+   * dictionary.
+   *
+   * @see Local()
+   */
+  class Local local;
+
+  /**
+   * An accessor providing read-only access to objects in the local object
+   * dictionary.
+   *
+   * @see ConstLocal()
+   */
+  class ConstLocal const_local;
 
  private:
   /**
