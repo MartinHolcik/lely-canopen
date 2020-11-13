@@ -27,13 +27,13 @@ class MySlave : public BasicSlave {
  private:
   void
   OnSync(uint8_t, const time_point&) noexcept override {
-    uint32_t val = (*this)[0x2002][0];
+    uint32_t val = local[0x2002][0];
     tap_diag("slave: sent PDO with value %d", val);
 
-    val = (*this)[0x2001][0];
+    val = local[0x2001][0];
     tap_diag("slave: received PDO with value %d", val);
     // Echo the value back to the master on the next SYNC.
-    (*this)[0x2002][0] = val;
+    local[0x2002][0] = val;
   }
 };
 
@@ -53,7 +53,7 @@ class MyDriver : public FiberDriver {
   OnBoot(NmtState, char es, const ::std::string&) noexcept override {
     tap_test(!es, "master: slave #%d successfully booted", id());
     // Start SYNC production.
-    master[0x1006][0] = UINT32_C(1000000);
+    local[0x1006][0] = UINT32_C(1000000);
   }
 
   void
