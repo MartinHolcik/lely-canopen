@@ -25,6 +25,7 @@
 #include <lely/coapp/node.hpp>
 #include <lely/coapp/sdo.hpp>
 
+#include <iterator>
 #include <map>
 #include <memory>
 #include <string>
@@ -49,6 +50,8 @@ class DriverBase;
  */
 class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
  public:
+  class SubObjectIterator;
+  class ConstSubObjectIterator;
   class Object;
   class ConstObject;
 
@@ -57,6 +60,7 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
    * object dictionary.
    */
   class SubObject {
+    friend class SubObjectIterator;
     friend class Object;
 
    public:
@@ -289,11 +293,71 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
     uint8_t id_;
   };
 
+  class SubObjectIterator {
+    friend class Object;
+
+   public:
+    using iterator_category = ::std::bidirectional_iterator_tag;
+    using value_type = SubObject;
+    using difference_type = ::std::ptrdiff_t;
+    using pointer = const SubObject*;
+    using reference = const SubObject&;
+
+    SubObjectIterator() = default;
+
+    SubObjectIterator& operator++() noexcept;
+
+    SubObjectIterator
+    operator++(int) noexcept {
+      SubObjectIterator tmp = *this;
+      ++(*this);
+      return tmp;
+    }
+
+    SubObjectIterator& operator--() noexcept;
+
+    SubObjectIterator
+    operator--(int) noexcept {
+      SubObjectIterator tmp = *this;
+      --(*this);
+      return tmp;
+    }
+
+    value_type
+    operator*() const noexcept {
+      return val_;
+    }
+
+    pointer
+    operator->() const noexcept {
+      return &val_;
+    }
+
+    bool
+    operator==(const SubObjectIterator& other) const noexcept {
+      return sub_ == other.sub_;
+    }
+
+    bool
+    operator!=(const SubObjectIterator& other) const noexcept {
+      return !(*this == other);
+    }
+
+   private:
+    SubObjectIterator(BasicMaster* master, void* obj) noexcept;
+    SubObjectIterator(BasicMaster* master, void* obj, void* sub) noexcept;
+
+    SubObject val_{nullptr, 0, 0};
+    void* obj_{nullptr};
+    void* sub_{nullptr};
+  };
+
   /**
    * An accessor providing read-only access to a CANopen sub-object in a local
    * object dictionary.
    */
   class ConstSubObject {
+    friend class ConstSubObjectIterator;
     friend class ConstObject;
 
    public:
@@ -394,6 +458,69 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
     uint8_t is_rpdo_ : 1;
   };
 
+  class ConstSubObjectIterator {
+    friend class Object;
+    friend class ConstObject;
+
+   public:
+    using iterator_category = ::std::bidirectional_iterator_tag;
+    using value_type = ConstSubObject;
+    using difference_type = ::std::ptrdiff_t;
+    using pointer = const ConstSubObject*;
+    using reference = const ConstSubObject&;
+
+    ConstSubObjectIterator() = default;
+
+    ConstSubObjectIterator& operator++() noexcept;
+
+    ConstSubObjectIterator
+    operator++(int) noexcept {
+      ConstSubObjectIterator tmp = *this;
+      ++(*this);
+      return tmp;
+    }
+
+    ConstSubObjectIterator& operator--() noexcept;
+
+    ConstSubObjectIterator
+    operator--(int) noexcept {
+      ConstSubObjectIterator tmp = *this;
+      --(*this);
+      return tmp;
+    }
+
+    value_type
+    operator*() const noexcept {
+      return val_;
+    }
+
+    pointer
+    operator->() const noexcept {
+      return &val_;
+    }
+
+    bool
+    operator==(const ConstSubObjectIterator& other) const noexcept {
+      return sub_ == other.sub_;
+    }
+
+    bool
+    operator!=(const ConstSubObjectIterator& other) const noexcept {
+      return !(*this == other);
+    }
+
+   private:
+    ConstSubObjectIterator(const BasicMaster* master, void* obj) noexcept;
+    ConstSubObjectIterator(const BasicMaster* master, void* obj,
+                           void* sub) noexcept;
+
+    ConstSubObject val_{nullptr, 0, 0};
+    void* obj_{nullptr};
+    void* sub_{nullptr};
+  };
+
+  class ObjectIterator;
+  class ConstObjectIterator;
   class Local;
   class ConstLocal;
   class RpdoMapped;
@@ -404,10 +531,16 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
    * dictionary.
    */
   class Object {
+    friend class ObjectIterator;
     friend class Local;
     friend class TpdoMapped;
 
    public:
+    using iterator = SubObjectIterator;
+    using const_iterator = ConstSubObjectIterator;
+    using reverse_iterator = ::std::reverse_iterator<iterator>;
+    using const_reverse_iterator = ::std::reverse_iterator<const_iterator>;
+
     /// Returns the object index.
     uint16_t
     idx() const noexcept {
@@ -429,6 +562,60 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
     operator[](uint8_t subidx) const noexcept {
       return SubObject(master_, id_, idx_, subidx);
     }
+
+    iterator begin() noexcept;
+
+    const_iterator
+    begin() const noexcept {
+      return cbegin();
+    }
+
+    const_iterator cbegin() const noexcept;
+
+    iterator end() noexcept;
+
+    const_iterator
+    end() const noexcept {
+      return cend();
+    }
+
+    const_iterator cend() const noexcept;
+
+    reverse_iterator
+    rbegin() noexcept {
+      return reverse_iterator(end());
+    }
+
+    const_reverse_iterator
+    rbegin() const noexcept {
+      return crbegin();
+    }
+
+    const_reverse_iterator
+    crbegin() const noexcept {
+      return const_reverse_iterator(cend());
+    }
+
+    reverse_iterator
+    rend() noexcept {
+      return reverse_iterator(begin());
+    }
+
+    const_reverse_iterator
+    rend() const noexcept {
+      return crend();
+    }
+
+    const_reverse_iterator
+    crend() const noexcept {
+      return const_reverse_iterator(cbegin());
+    }
+
+    iterator find(uint8_t subidx) noexcept;
+
+    const_iterator find(uint8_t subidx) const noexcept;
+
+    bool contains(uint8_t subidx) const noexcept;
 
     bool
     operator==(const Object& other) const noexcept {
@@ -452,15 +639,77 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
     uint8_t id_;
   };
 
+  class ObjectIterator {
+    friend class Local;
+
+   public:
+    using iterator_category = ::std::bidirectional_iterator_tag;
+    using value_type = Object;
+    using difference_type = ::std::ptrdiff_t;
+    using pointer = const Object*;
+    using reference = const Object&;
+
+    ObjectIterator() = default;
+
+    ObjectIterator& operator++() noexcept;
+
+    ObjectIterator
+    operator++(int) noexcept {
+      ObjectIterator tmp = *this;
+      ++(*this);
+      return tmp;
+    }
+
+    ObjectIterator& operator--() noexcept;
+
+    ObjectIterator
+    operator--(int) noexcept {
+      ObjectIterator tmp = *this;
+      --(*this);
+      return tmp;
+    }
+
+    value_type
+    operator*() const noexcept {
+      return val_;
+    }
+
+    pointer
+    operator->() const noexcept {
+      return &val_;
+    }
+
+    bool
+    operator==(const ObjectIterator& other) const noexcept {
+      return obj_ == other.obj_;
+    }
+
+    bool
+    operator!=(const ObjectIterator& other) const noexcept {
+      return !(*this == other);
+    }
+
+   private:
+    ObjectIterator(BasicMaster* master) noexcept;
+    ObjectIterator(BasicMaster* master, void* obj) noexcept;
+
+    Object val_{nullptr, 0};
+    void* obj_{nullptr};
+  };
+
   /**
    * An accessor providing read-only access to a CANopen object in a local
    * object dictionary.
    */
   class ConstObject {
+    friend class ConstObjectIterator;
     friend class ConstLocal;
     friend class RpdoMapped;
 
    public:
+    using const_iterator = ConstSubObjectIterator;
+    using const_reverse_iterator = ::std::reverse_iterator<const_iterator>;
+
     /// Returns the object index.
     uint16_t
     idx() const noexcept {
@@ -482,6 +731,44 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
     operator[](uint8_t subidx) const noexcept {
       return ConstSubObject(master_, id_, idx_, subidx, is_rpdo_);
     }
+
+    const_iterator
+    begin() const noexcept {
+      return cbegin();
+    }
+
+    const_iterator cbegin() const noexcept;
+
+    const_iterator
+    end() const noexcept {
+      return cend();
+    }
+
+    const_iterator cend() const noexcept;
+
+    const_reverse_iterator
+    rbegin() const noexcept {
+      return crbegin();
+    }
+
+    const_reverse_iterator
+    crbegin() const noexcept {
+      return const_reverse_iterator(cend());
+    }
+
+    const_reverse_iterator
+    rend() const noexcept {
+      return crend();
+    }
+
+    const_reverse_iterator
+    crend() const noexcept {
+      return const_reverse_iterator(cbegin());
+    }
+
+    const_iterator find(uint8_t subidx) const noexcept;
+
+    bool contains(uint8_t subidx) const noexcept;
 
     bool
     operator==(const ConstObject& other) const noexcept {
@@ -508,6 +795,65 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
     uint8_t is_rpdo_ : 1;
   };
 
+  class ConstObjectIterator {
+    friend class Local;
+    friend class ConstLocal;
+
+   public:
+    using iterator_category = ::std::bidirectional_iterator_tag;
+    using value_type = ConstObject;
+    using difference_type = ::std::ptrdiff_t;
+    using pointer = const ConstObject*;
+    using reference = const ConstObject&;
+
+    ConstObjectIterator() = default;
+
+    ConstObjectIterator& operator++() noexcept;
+
+    ConstObjectIterator
+    operator++(int) noexcept {
+      ConstObjectIterator tmp = *this;
+      ++(*this);
+      return tmp;
+    }
+
+    ConstObjectIterator& operator--() noexcept;
+
+    ConstObjectIterator
+    operator--(int) noexcept {
+      ConstObjectIterator tmp = *this;
+      --(*this);
+      return tmp;
+    }
+
+    value_type
+    operator*() const noexcept {
+      return val_;
+    }
+
+    pointer
+    operator->() const noexcept {
+      return &val_;
+    }
+
+    bool
+    operator==(const ConstObjectIterator& other) const noexcept {
+      return obj_ == other.obj_;
+    }
+
+    bool
+    operator!=(const ConstObjectIterator& other) const noexcept {
+      return !(*this == other);
+    }
+
+   private:
+    ConstObjectIterator(const BasicMaster* master) noexcept;
+    ConstObjectIterator(const BasicMaster* master, void* obj) noexcept;
+
+    ConstObject val_{nullptr, 0};
+    void* obj_{nullptr};
+  };
+
   /**
    * A mutator providing read/write access to objects in the local object
    * dictionary.
@@ -516,6 +862,11 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
     friend class BasicMaster;
 
    public:
+    using iterator = ObjectIterator;
+    using const_iterator = ConstObjectIterator;
+    using reverse_iterator = ::std::reverse_iterator<iterator>;
+    using const_reverse_iterator = ::std::reverse_iterator<const_iterator>;
+
     /**
      * Returns a mutator object that provides read/write access to the specified
      * CANopen object in the local object dictionary. Note that this function
@@ -531,6 +882,60 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
       return Object(master_, idx);
     }
 
+    iterator begin() noexcept;
+
+    const_iterator
+    begin() const noexcept {
+      return cbegin();
+    }
+
+    const_iterator cbegin() const noexcept;
+
+    iterator end() noexcept;
+
+    const_iterator
+    end() const noexcept {
+      return cend();
+    }
+
+    const_iterator cend() const noexcept;
+
+    reverse_iterator
+    rbegin() noexcept {
+      return reverse_iterator(end());
+    }
+
+    const_reverse_iterator
+    rbegin() const noexcept {
+      return crbegin();
+    }
+
+    const_reverse_iterator
+    crbegin() const noexcept {
+      return const_reverse_iterator(cend());
+    }
+
+    reverse_iterator
+    rend() noexcept {
+      return reverse_iterator(begin());
+    }
+
+    const_reverse_iterator
+    rend() const noexcept {
+      return crend();
+    }
+
+    const_reverse_iterator
+    crend() const noexcept {
+      return const_reverse_iterator(cbegin());
+    }
+
+    iterator find(uint16_t idx) noexcept;
+
+    const_iterator find(uint16_t idx) const noexcept;
+
+    bool contains(uint16_t idx) const noexcept;
+
    private:
     Local(BasicMaster* master) noexcept : master_(master) {}
 
@@ -545,6 +950,9 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
     friend class BasicMaster;
 
    public:
+    using const_iterator = ConstObjectIterator;
+    using const_reverse_iterator = ::std::reverse_iterator<const_iterator>;
+
     /**
      * Returns an accessor object that provides read-only access to the
      * specified CANopen object in the local object dictionary. Note that this
@@ -559,6 +967,44 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
     operator[](::std::ptrdiff_t idx) const noexcept {
       return ConstObject(master_, idx);
     }
+
+    const_iterator
+    begin() const noexcept {
+      return cbegin();
+    }
+
+    const_iterator cbegin() const noexcept;
+
+    const_iterator
+    end() const noexcept {
+      return cend();
+    }
+
+    const_iterator cend() const noexcept;
+
+    const_reverse_iterator
+    rbegin() const noexcept {
+      return crbegin();
+    }
+
+    const_reverse_iterator
+    crbegin() const noexcept {
+      return const_reverse_iterator(cend());
+    }
+
+    const_reverse_iterator
+    rend() const noexcept {
+      return crend();
+    }
+
+    const_reverse_iterator
+    crend() const noexcept {
+      return const_reverse_iterator(cbegin());
+    }
+
+    const_iterator find(uint16_t idx) const noexcept;
+
+    bool contains(uint16_t idx) const noexcept;
 
    private:
     ConstLocal(const BasicMaster* master) noexcept : master_(master) {}

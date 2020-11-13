@@ -27,6 +27,7 @@
 
 #include <lely/co/dev.h>
 #include <lely/co/nmt.h>
+#include <lely/co/obj.h>
 #include <lely/coapp/driver.hpp>
 
 #include <algorithm>
@@ -57,6 +58,264 @@ struct BasicMaster::Impl_ {
   ::std::array<bool, CO_NUM_NODES> config{{false}};
   ::std::map<uint8_t, Sdo> sdos;
 };
+
+BasicMaster::SubObjectIterator::SubObjectIterator(BasicMaster* master,
+                                                  void* obj) noexcept
+    : val_(master, obj ? co_obj_get_idx(static_cast<co_obj_t*>(obj)) : 0, 0),
+      obj_(obj) {
+  assert(master);
+}
+
+BasicMaster::SubObjectIterator::SubObjectIterator(BasicMaster* master,
+                                                  void* obj, void* sub) noexcept
+    : val_(master, obj ? co_obj_get_idx(static_cast<co_obj_t*>(obj)) : 0,
+           sub ? co_sub_get_subidx(static_cast<co_sub_t*>(sub)) : 0),
+      obj_(obj),
+      sub_(sub) {
+  assert(master);
+}
+
+BasicMaster::SubObjectIterator&
+BasicMaster::SubObjectIterator::operator++() noexcept {
+  sub_ = sub_ ? co_sub_next(static_cast<co_sub_t*>(sub_))
+              : obj_ ? co_obj_first_sub(static_cast<co_obj_t*>(obj_)) : nullptr;
+  val_.idx_ = obj_ ? co_obj_get_idx(static_cast<co_obj_t*>(obj_)) : 0;
+  val_.subidx_ = sub_ ? co_sub_get_subidx(static_cast<co_sub_t*>(sub_)) : 0;
+  return *this;
+}
+
+BasicMaster::SubObjectIterator&
+BasicMaster::SubObjectIterator::operator--() noexcept {
+  sub_ = sub_ ? co_sub_prev(static_cast<co_sub_t*>(sub_))
+              : obj_ ? co_obj_last_sub(static_cast<co_obj_t*>(obj_)) : nullptr;
+  val_.idx_ = obj_ ? co_obj_get_idx(static_cast<co_obj_t*>(obj_)) : 0;
+  val_.subidx_ = sub_ ? co_sub_get_subidx(static_cast<co_sub_t*>(sub_)) : 0;
+  return *this;
+}
+
+BasicMaster::ConstSubObjectIterator::ConstSubObjectIterator(
+    const BasicMaster* master, void* obj) noexcept
+    : val_(master, obj ? co_obj_get_idx(static_cast<co_obj_t*>(obj)) : 0, 0),
+      obj_(obj) {
+  assert(master);
+}
+
+BasicMaster::ConstSubObjectIterator::ConstSubObjectIterator(
+    const BasicMaster* master, void* obj, void* sub) noexcept
+    : val_(master, obj ? co_obj_get_idx(static_cast<co_obj_t*>(obj)) : 0,
+           sub ? co_sub_get_subidx(static_cast<co_sub_t*>(sub)) : 0),
+      obj_(obj),
+      sub_(sub) {
+  assert(master);
+}
+
+BasicMaster::ConstSubObjectIterator&
+BasicMaster::ConstSubObjectIterator::operator++() noexcept {
+  sub_ = sub_ ? co_sub_next(static_cast<co_sub_t*>(sub_))
+              : obj_ ? co_obj_first_sub(static_cast<co_obj_t*>(obj_)) : nullptr;
+  val_.idx_ = obj_ ? co_obj_get_idx(static_cast<co_obj_t*>(obj_)) : 0;
+  val_.subidx_ = sub_ ? co_sub_get_subidx(static_cast<co_sub_t*>(sub_)) : 0;
+  return *this;
+}
+
+BasicMaster::ConstSubObjectIterator&
+BasicMaster::ConstSubObjectIterator::operator--() noexcept {
+  sub_ = sub_ ? co_sub_prev(static_cast<co_sub_t*>(sub_))
+              : obj_ ? co_obj_last_sub(static_cast<co_obj_t*>(obj_)) : nullptr;
+  val_.idx_ = obj_ ? co_obj_get_idx(static_cast<co_obj_t*>(obj_)) : 0;
+  val_.subidx_ = sub_ ? co_sub_get_subidx(static_cast<co_sub_t*>(sub_)) : 0;
+  return *this;
+}
+
+BasicMaster::Object::iterator
+BasicMaster::Object::begin() noexcept {
+  return ++end();
+}
+
+BasicMaster::Object::const_iterator
+BasicMaster::Object::cbegin() const noexcept {
+  return ++cend();
+}
+
+BasicMaster::Object::iterator
+BasicMaster::Object::end() noexcept {
+  assert(master_);
+  return {master_, co_dev_find_obj(master_->dev(), idx_)};
+}
+
+BasicMaster::Object::const_iterator
+BasicMaster::Object::cend() const noexcept {
+  assert(master_);
+  return {master_, co_dev_find_obj(master_->dev(), idx_)};
+}
+
+BasicMaster::Object::iterator
+BasicMaster::Object::find(uint8_t subidx) noexcept {
+  assert(master_);
+  auto obj = co_dev_find_obj(master_->dev(), idx_);
+  auto sub = obj ? co_obj_find_sub(obj, subidx) : nullptr;
+  return {master_, obj, sub};
+}
+
+BasicMaster::Object::const_iterator
+BasicMaster::Object::find(uint8_t subidx) const noexcept {
+  assert(master_);
+  auto obj = co_dev_find_obj(master_->dev(), idx_);
+  auto sub = obj ? co_obj_find_sub(obj, subidx) : nullptr;
+  return {master_, obj, sub};
+}
+
+bool
+BasicMaster::Object::contains(uint8_t subidx) const noexcept {
+  assert(master_);
+  return co_dev_find_sub(master_->dev(), idx_, subidx) != nullptr;
+}
+
+BasicMaster::ObjectIterator::ObjectIterator(BasicMaster* master) noexcept
+    : val_(master, 0) {
+  assert(master);
+}
+
+BasicMaster::ObjectIterator::ObjectIterator(BasicMaster* master,
+                                            void* obj) noexcept
+    : val_(master, obj ? co_obj_get_idx(static_cast<co_obj_t*>(obj)) : 0),
+      obj_(obj) {
+  assert(master);
+}
+
+BasicMaster::ObjectIterator&
+BasicMaster::ObjectIterator::operator++() noexcept {
+  assert(val_.master_);
+  obj_ = obj_ ? co_obj_next(static_cast<co_obj_t*>(obj_))
+              : co_dev_first_obj(val_.master_->dev());
+  val_.idx_ = obj_ ? co_obj_get_idx(static_cast<co_obj_t*>(obj_)) : 0;
+  return *this;
+}
+
+BasicMaster::ObjectIterator&
+BasicMaster::ObjectIterator::operator--() noexcept {
+  assert(val_.master_);
+  obj_ = obj_ ? co_obj_prev(static_cast<co_obj_t*>(obj_))
+              : co_dev_last_obj(val_.master_->dev());
+  val_.idx_ = obj_ ? co_obj_get_idx(static_cast<co_obj_t*>(obj_)) : 0;
+  return *this;
+}
+
+BasicMaster::ConstObject::const_iterator
+BasicMaster::ConstObject::cbegin() const noexcept {
+  return ++cend();
+}
+
+BasicMaster::ConstObject::const_iterator
+BasicMaster::ConstObject::cend() const noexcept {
+  assert(master_);
+  return {master_, co_dev_find_obj(master_->dev(), idx_)};
+}
+
+BasicMaster::ConstObject::const_iterator
+BasicMaster::ConstObject::find(uint8_t subidx) const noexcept {
+  assert(master_);
+  auto obj = co_dev_find_obj(master_->dev(), idx_);
+  auto sub = obj ? co_obj_find_sub(obj, subidx) : nullptr;
+  return {master_, obj, sub};
+}
+
+bool
+BasicMaster::ConstObject::contains(uint8_t subidx) const noexcept {
+  assert(master_);
+  return co_dev_find_sub(master_->dev(), idx_, subidx) != nullptr;
+}
+
+BasicMaster::ConstObjectIterator::ConstObjectIterator(
+    const BasicMaster* master) noexcept
+    : val_(master, 0) {
+  assert(master);
+}
+
+BasicMaster::ConstObjectIterator::ConstObjectIterator(const BasicMaster* master,
+                                                      void* obj) noexcept
+    : val_(master, obj ? co_obj_get_idx(static_cast<co_obj_t*>(obj)) : 0),
+      obj_(obj) {
+  assert(master);
+}
+
+BasicMaster::ConstObjectIterator&
+BasicMaster::ConstObjectIterator::operator++() noexcept {
+  assert(val_.master_);
+  obj_ = obj_ ? co_obj_next(static_cast<co_obj_t*>(obj_))
+              : co_dev_first_obj(val_.master_->dev());
+  val_.idx_ = obj_ ? co_obj_get_idx(static_cast<co_obj_t*>(obj_)) : 0;
+  return *this;
+}
+
+BasicMaster::ConstObjectIterator&
+BasicMaster::ConstObjectIterator::operator--() noexcept {
+  assert(val_.master_);
+  obj_ = obj_ ? co_obj_prev(static_cast<co_obj_t*>(obj_))
+              : co_dev_last_obj(val_.master_->dev());
+  val_.idx_ = obj_ ? co_obj_get_idx(static_cast<co_obj_t*>(obj_)) : 0;
+  return *this;
+}
+
+BasicMaster::Local::iterator
+BasicMaster::Local::begin() noexcept {
+  return ++end();
+}
+
+BasicMaster::Local::const_iterator
+BasicMaster::Local::cbegin() const noexcept {
+  return ++cend();
+}
+
+BasicMaster::Local::iterator
+BasicMaster::Local::end() noexcept {
+  return {master_};
+}
+
+BasicMaster::Local::const_iterator
+BasicMaster::Local::cend() const noexcept {
+  return {master_};
+}
+
+BasicMaster::Local::iterator
+BasicMaster::Local::find(uint16_t idx) noexcept {
+  assert(master_);
+  return {master_, co_dev_find_obj(master_->dev(), idx)};
+}
+
+BasicMaster::Local::const_iterator
+BasicMaster::Local::find(uint16_t idx) const noexcept {
+  assert(master_);
+  return {master_, co_dev_find_obj(master_->dev(), idx)};
+}
+
+bool
+BasicMaster::Local::contains(uint16_t idx) const noexcept {
+  assert(master_);
+  return co_dev_find_obj(master_->dev(), idx) != nullptr;
+}
+
+BasicMaster::ConstLocal::const_iterator
+BasicMaster::ConstLocal::cbegin() const noexcept {
+  return ++cend();
+}
+
+BasicMaster::ConstLocal::const_iterator
+BasicMaster::ConstLocal::cend() const noexcept {
+  return {master_};
+}
+
+BasicMaster::ConstLocal::const_iterator
+BasicMaster::ConstLocal::find(uint16_t idx) const noexcept {
+  assert(master_);
+  return {master_, co_dev_find_obj(master_->dev(), idx)};
+}
+
+bool
+BasicMaster::ConstLocal::contains(uint16_t idx) const noexcept {
+  assert(master_);
+  return co_dev_find_obj(master_->dev(), idx) != nullptr;
+}
 
 void
 BasicMaster::TpdoEventMutex::lock() {
