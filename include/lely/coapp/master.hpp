@@ -66,6 +66,18 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
     SubObject& operator=(const SubObject&) = default;
     SubObject& operator=(SubObject&&) = default;
 
+    /// Returns the object index.
+    uint16_t
+    idx() const noexcept {
+      return idx_;
+    }
+
+    /// Returns the object sub-index.
+    uint8_t
+    subidx() const noexcept {
+      return subidx_;
+    }
+
     /**
      * Sets the value of the sub-object.
      *
@@ -252,6 +264,17 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
         master_->WriteEvent(idx_, subidx_, ec);
     }
 
+    bool
+    operator==(const SubObject& other) const noexcept {
+      return master_ == other.master_ && idx_ == other.idx_ &&
+             subidx_ == other.subidx_ && id_ == other.id_;
+    }
+
+    bool
+    operator!=(const SubObject& other) const noexcept {
+      return !(*this == other);
+    }
+
    private:
     SubObject(BasicMaster* master, uint16_t idx, uint8_t subidx) noexcept
         : SubObject(master, 0, idx, subidx) {}
@@ -274,6 +297,18 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
     friend class ConstObject;
 
    public:
+    /// Returns the object index.
+    uint16_t
+    idx() const noexcept {
+      return idx_;
+    }
+
+    /// Returns the object sub-index.
+    uint8_t
+    subidx() const noexcept {
+      return subidx_;
+    }
+
     /**
      * Returns the value of the sub-object by submitting an SDO upload request
      * to the local object dictionary.
@@ -327,6 +362,18 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
                  : master_->Read<T>(idx_, subidx_, ec);
     }
 
+    bool
+    operator==(const ConstSubObject& other) const noexcept {
+      return master_ == other.master_ && idx_ == other.idx_ &&
+             subidx_ == other.subidx_ && id_ == other.id_ &&
+             is_rpdo_ == other.is_rpdo_;
+    }
+
+    bool
+    operator!=(const ConstSubObject& other) const noexcept {
+      return !(*this == other);
+    }
+
    private:
     ConstSubObject(const BasicMaster* master, uint16_t idx,
                    uint8_t subidx) noexcept
@@ -361,6 +408,12 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
     friend class TpdoMapped;
 
    public:
+    /// Returns the object index.
+    uint16_t
+    idx() const noexcept {
+      return idx_;
+    }
+
     /**
      * Returns a mutator object that provides read/write access to the specified
      * CANopen sub-object in the local object dictionary (or the TPDO-mapped
@@ -375,6 +428,16 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
     SubObject
     operator[](uint8_t subidx) const noexcept {
       return SubObject(master_, id_, idx_, subidx);
+    }
+
+    bool
+    operator==(const Object& other) const noexcept {
+      return master_ == other.master_ && idx_ == other.idx_ && id_ == other.id_;
+    }
+
+    bool
+    operator!=(const Object& other) const noexcept {
+      return !(*this == other);
     }
 
    private:
@@ -398,6 +461,12 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
     friend class RpdoMapped;
 
    public:
+    /// Returns the object index.
+    uint16_t
+    idx() const noexcept {
+      return idx_;
+    }
+
     /**
      * Returns an accessor object that provides read-only access to the
      * specified CANopen sub-object in the local object dictionary (or the
@@ -412,6 +481,17 @@ class BasicMaster : public Node, protected ::std::map<uint8_t, DriverBase*> {
     ConstSubObject
     operator[](uint8_t subidx) const noexcept {
       return ConstSubObject(master_, id_, idx_, subidx, is_rpdo_);
+    }
+
+    bool
+    operator==(const ConstObject& other) const noexcept {
+      return master_ == other.master_ && idx_ == other.idx_ &&
+             id_ == other.id_ && is_rpdo_ == other.is_rpdo_;
+    }
+
+    bool
+    operator!=(const ConstObject& other) const noexcept {
+      return !(*this == other);
     }
 
    private:

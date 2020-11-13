@@ -95,6 +95,18 @@ class BasicSlave : public Node {
     SubObject& operator=(const SubObject&) = default;
     SubObject& operator=(SubObject&&) = default;
 
+    /// Returns the object index.
+    uint16_t
+    idx() const noexcept {
+      return idx_;
+    }
+
+    /// Returns the object sub-index.
+    uint8_t
+    subidx() const noexcept {
+      return subidx_;
+    }
+
     /**
      * Sets the value of the sub-object.
      *
@@ -313,6 +325,17 @@ class BasicSlave : public Node {
         slave_->SetEvent(idx_, subidx_, ec);
     }
 
+    bool
+    operator==(const SubObject& other) const noexcept {
+      return slave_ == other.slave_ && idx_ == other.idx_ &&
+             subidx_ == other.subidx_ && id_ == other.id_;
+    }
+
+    bool
+    operator!=(const SubObject& other) const noexcept {
+      return !(*this == other);
+    }
+
    private:
     SubObject(BasicSlave* slave, uint8_t id, uint16_t idx,
               uint8_t subidx) noexcept
@@ -332,6 +355,18 @@ class BasicSlave : public Node {
     friend class ConstObject;
 
    public:
+    /// Returns the object index.
+    uint16_t
+    idx() const noexcept {
+      return idx_;
+    }
+
+    /// Returns the object sub-index.
+    uint8_t
+    subidx() const noexcept {
+      return subidx_;
+    }
+
     /**
      * Returns a copy of the value of the sub-object.
      *
@@ -418,6 +453,18 @@ class BasicSlave : public Node {
                  : slave_->Get<T>(idx_, subidx_, ec);
     }
 
+    bool
+    operator==(const ConstSubObject& other) const noexcept {
+      return slave_ == other.slave_ && idx_ == other.idx_ &&
+             subidx_ == other.subidx_ && id_ == other.id_ &&
+             is_rpdo_ == other.is_rpdo_;
+    }
+
+    bool
+    operator!=(const ConstSubObject& other) const noexcept {
+      return !(*this == other);
+    }
+
    private:
     ConstSubObject(const BasicSlave* slave, uint8_t id, uint16_t idx,
                    uint8_t subidx, bool is_rpdo) noexcept
@@ -448,6 +495,12 @@ class BasicSlave : public Node {
     friend class TpdoMapped;
 
    public:
+    /// Returns the object index.
+    uint16_t
+    idx() const noexcept {
+      return idx_;
+    }
+
     /**
      * Returns a mutator object that provides read/write access to the specified
      * CANopen sub-object in the local object dictionary (or the TPDO-mapped
@@ -462,6 +515,16 @@ class BasicSlave : public Node {
     SubObject
     operator[](uint8_t subidx) const noexcept {
       return SubObject(slave_, id_, idx_, subidx);
+    }
+
+    bool
+    operator==(const Object& other) const noexcept {
+      return slave_ == other.slave_ && idx_ == other.idx_ && id_ == other.id_;
+    }
+
+    bool
+    operator!=(const Object& other) const noexcept {
+      return !(*this == other);
     }
 
    private:
@@ -484,6 +547,12 @@ class BasicSlave : public Node {
     friend class RpdoMapped;
 
    public:
+    /// Returns the object index.
+    uint16_t
+    idx() const noexcept {
+      return idx_;
+    }
+
     /**
      * Returns an accessor object that provides read-only access to the
      * specified CANopen sub-object in the local object dictionary (or the
@@ -498,6 +567,17 @@ class BasicSlave : public Node {
     ConstSubObject
     operator[](uint8_t subidx) const noexcept {
       return ConstSubObject(slave_, id_, idx_, subidx, is_rpdo_);
+    }
+
+    bool
+    operator==(const ConstObject& other) const noexcept {
+      return slave_ == other.slave_ && idx_ == other.idx_ && id_ == other.id_ &&
+             is_rpdo_ == other.is_rpdo_;
+    }
+
+    bool
+    operator!=(const ConstObject& other) const noexcept {
+      return !(*this == other);
     }
 
    private:
