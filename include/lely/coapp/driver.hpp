@@ -660,6 +660,22 @@ class BasicDriver : DriverBase,
   BasicMaster& master;
 
   /**
+   * A mutator providing read/write access to objects in the local object
+   * dictionary.
+   *
+   * @see BasicMaster::Local()
+   */
+  class BasicMaster::Local local;
+
+  /**
+   * An accessor providing read-only access to objects in the local object
+   * dictionary.
+   *
+   * @see BasicMaster::ConstLocal()
+   */
+  class BasicMaster::ConstLocal const_local;
+
+  /**
    * An accessor providing read-only access to RPDO-mapped objects in the remote
    * object dictionary.
    *

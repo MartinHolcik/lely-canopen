@@ -39,6 +39,8 @@ namespace canopen {
 
 BasicDriver::BasicDriver(ev_exec_t* exec, BasicMaster& master_, uint8_t id)
     : master(master_),
+      local(master.Local()),
+      const_local(master.ConstLocal()),
       rpdo_mapped(master.RpdoMapped(id)),
       tpdo_mapped(master.TpdoMapped(id)),
       tpdo_event_mutex(master.tpdo_event_mutex),
