@@ -2505,8 +2505,12 @@ co_nmt_recv_700(const struct can_msg *msg, void *data)
 {
 	assert(msg);
 	assert(msg->id > 0x700 && msg->id <= 0x77f);
+#if LELY_NO_CO_MASTER && LELY_NO_CO_NG
+	(void)data;
+#else
 	co_nmt_t *nmt = data;
 	assert(nmt);
+#endif
 
 	if (msg->flags & CAN_FLAG_RTR) {
 		assert(nmt->gt && nmt->ltf);
