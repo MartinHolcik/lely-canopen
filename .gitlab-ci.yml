@@ -141,7 +141,7 @@ test:gcc:12:
 
 build:configure:
   extends: .build
-  image: $REGISTRY/gcc:11
+  image: $REGISTRY/gcc:12
   parallel:
     matrix:
       - CONFIGURE_OPTIONS:
@@ -151,17 +151,17 @@ build:configure:
 
 test:configure:disable-canfd:
   extends: .test
-  image: $REGISTRY/gcc:11
+  image: $REGISTRY/gcc:12
   needs: ["build:configure: [--disable-canfd]"]
 
 test:configure:disable-cxx:
   extends: .test
-  image: $REGISTRY/gcc:11
+  image: $REGISTRY/gcc:12
   needs: ["build:configure: [--disable-cxx]"]
 
 test:configure:disable-master:
   extends: .test
-  image: $REGISTRY/gcc:11
+  image: $REGISTRY/gcc:12
   needs: ["build:configure: [--disable-master]"]
 
 docker:mingw-w64:
