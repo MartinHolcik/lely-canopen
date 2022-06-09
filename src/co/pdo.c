@@ -4,7 +4,7 @@
  *
  * @see lely/co/pdo.h
  *
- * @copyright 2016-2020 Lely Industries N.V.
+ * @copyright 2016-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -252,7 +252,8 @@ co_pdo_unmap(const struct co_pdo_map_par *par, const uint_least8_t *buf,
 
 co_unsigned32_t
 co_pdo_dn(const struct co_pdo_map_par *par, co_dev_t *dev,
-		struct co_sdo_req *req, const uint_least8_t *buf, size_t n)
+		struct co_sdo_req *req, const uint_least8_t *buf, size_t n,
+		int chk)
 {
 	assert(par);
 	assert(dev);
@@ -278,10 +279,10 @@ co_pdo_dn(const struct co_pdo_map_par *par, co_dev_t *dev,
 		if (offset + len > n * 8)
 			return CO_SDO_AC_PDO_LEN;
 
-		// Check whether the sub-object exists and can be mapped into a
-		// PDO (or is a valid dummy entry).
-		ac = co_dev_chk_rpdo(dev, idx, subidx);
-		if (ac)
+		// Check, if necessary, whether the sub-object exists and can be
+		// mapped into an RPDO (or is a valid dummy entry).
+		co_unsigned32_t ac = 0;
+		if (chk && (ac = co_dev_chk_rpdo(dev, idx, subidx)))
 			return ac;
 
 		co_sub_t *sub = co_dev_find_sub(dev, idx, subidx);
@@ -306,7 +307,7 @@ co_pdo_dn(const struct co_pdo_map_par *par, co_dev_t *dev,
 
 co_unsigned32_t
 co_pdo_up(const struct co_pdo_map_par *par, const co_dev_t *dev,
-		struct co_sdo_req *req, uint_least8_t *buf, size_t *pn)
+		struct co_sdo_req *req, uint_least8_t *buf, size_t *pn, int chk)
 {
 	assert(par);
 	assert(dev);
@@ -328,10 +329,10 @@ co_pdo_up(const struct co_pdo_map_par *par, const co_dev_t *dev,
 		if (offset + len > CAN_MAX_LEN * 8)
 			return CO_SDO_AC_PDO_LEN;
 
-		// Check whether the sub-object exists and can be mapped into a
-		// PDO.
-		ac = co_dev_chk_tpdo(dev, idx, subidx);
-		if (ac)
+		// Check, if necessary, whether the sub-object exists and can be
+		// mapped into a TPDO.
+		co_unsigned32_t ac = 0;
+		if (chk && (ac = co_dev_chk_tpdo(dev, idx, subidx)))
 			return ac;
 
 		// Upload the value of the sub-object and copy the value.
