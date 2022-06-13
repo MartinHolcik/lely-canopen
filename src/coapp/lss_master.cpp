@@ -4,7 +4,7 @@
  *
  * @see lely/coapp/lss_master.hpp
  *
- * @copyright 2020 Lely Industries N.V.
+ * @copyright 2020-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -39,7 +39,7 @@ namespace canopen {
 struct LssMaster::Impl_ : public util::BasicLockable {
   Impl_(LssMaster* self, ev_exec_t* exec, Node& node,
         io::CanControllerBase* ctrl, CONMT* nmt);
-  ~Impl_();
+  virtual ~Impl_();
 
   void
   lock() final {
