@@ -4,7 +4,7 @@
  *
  * @see lely/coapp/slave.hpp
  *
- * @copyright 2018-2019 Lely Industries N.V.
+ * @copyright 2018-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -157,7 +157,7 @@ BasicSlave::OnRead(uint16_t idx, uint8_t subidx,
 
   auto key = Impl_::Key(sub);
   if (ind) {
-    impl_->up_ind[key] = [this, ind](const COSub* sub, void* p) {
+    impl_->up_ind[key] = [ind](const COSub* sub, void* p) {
       auto ec = OnUpInd<T>(sub, *static_cast<COVal<N>*>(p), ind);
       return static_cast<uint32_t>(ec.value());
     };
@@ -251,7 +251,7 @@ BasicSlave::OnWrite(uint16_t idx, uint8_t subidx,
 
   auto key = Impl_::Key(sub);
   if (ind) {
-    impl_->dn_ind[key] = [this, ind](COSub* sub, void* p) {
+    impl_->dn_ind[key] = [ind](COSub* sub, void* p) {
       auto ec = OnDnInd<T>(sub, *static_cast<COVal<N>*>(p), ind);
       return static_cast<uint32_t>(ec.value());
     };

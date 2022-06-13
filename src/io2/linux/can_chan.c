@@ -4,7 +4,7 @@
  *
  * @see lely/io2/linux/can.h
  *
- * @copyright 2015-2021 Lely Industries N.V.
+ * @copyright 2015-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -43,6 +43,7 @@
 #include <unistd.h>
 
 #include <linux/can/raw.h>
+#include <linux/sockios.h>
 #include <sys/ioctl.h>
 
 #include "../posix/fd.h"
