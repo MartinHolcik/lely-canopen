@@ -4,7 +4,7 @@
  *
  * @see lely/ev/future.h
  *
- * @copyright 2018-2021 Lely Industries N.V.
+ * @copyright 2018-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -579,7 +579,7 @@ when_all(ev_exec_t* exec, InputIt first, InputIt last) {
   return Future<::std::size_t, void>(f);
 }
 
-/// @see ev_future_when_all_n()
+/// @see ev_future_when_all()
 template <class... Futures>
 inline Future<::std::size_t, void>
 when_all(ev_exec_t* exec, Futures&&... futures) {
@@ -601,7 +601,7 @@ when_any(ev_exec_t* exec, InputIt first, InputIt last) {
   return Future<::std::size_t, void>(f);
 }
 
-/// @see ev_future_when_any_n()
+/// @see ev_future_when_any()
 template <class... Futures>
 inline Future<::std::size_t, void>
 when_any(ev_exec_t* exec, Futures&&... futures) {
