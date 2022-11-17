@@ -13,7 +13,7 @@
  *
  * @see lely/util/fiber.h
  *
- * @copyright 2019 Lely Industries N.V.
+ * @copyright 2019-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -30,8 +30,8 @@
  * limitations under the License.
  */
 
-#ifndef LELY_EV_CO_FIBER_H_
-#define LELY_EV_CO_FIBER_H_
+#ifndef LELY_EV_FIBER_EXEC_H_
+#define LELY_EV_FIBER_EXEC_H_
 
 #include <lely/ev/future.h>
 #include <lely/util/fiber.h>
@@ -114,4 +114,4 @@ void ev_fiber_await(ev_future_t *future);
 }
 #endif
 
-#endif // !LELY_EV_CO_FIBER_H_
+#endif // !LELY_EV_FIBER_EXEC_H_
