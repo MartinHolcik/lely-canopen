@@ -4,7 +4,7 @@
  *
  * @see lely/co/crc.h
  *
- * @copyright 2016-2019 Lely Industries N.V.
+ * @copyright 2016-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -81,7 +81,8 @@ co_crc(uint_least16_t crc, const uint_least8_t *bp, size_t n)
 
 	if (bp && n) {
 		while (n--)
-			crc = tab[*bp++ ^ (crc >> 8)] ^ (crc << 8);
+			crc = tab[*bp++ ^ (crc >> 8)]
+					^ (uint_least16_t)(crc << 8);
 	}
 	return crc;
 }

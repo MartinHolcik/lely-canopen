@@ -4,7 +4,7 @@
  *
  * @see lely/io2/win32/poll.h
  *
- * @copyright 2018-2019 Lely Industries N.V.
+ * @copyright 2018-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -204,8 +204,8 @@ io_poll_post(io_poll_t *poll, size_t nbytes, struct io_cp *cp)
 	assert(cp);
 
 	// clang-format off
-	return PostQueuedCompletionStatus(poll->CompletionPort, nbytes, 0,
-			&cp->overlapped) ? 0 : -1;
+	return PostQueuedCompletionStatus(poll->CompletionPort, (DWORD)nbytes,
+			0, &cp->overlapped) ? 0 : -1;
 	// clang-format on
 }
 
@@ -282,9 +282,10 @@ io_poll_poll_wait(ev_poll_t *poll_, int timeout)
 			if (cp->func) {
 				assert(lpfnRtlNtStatusToDosError);
 				DWORD dwErrorCode = lpfnRtlNtStatusToDosError(
-						lpOverlapped->Internal);
+						(NTSTATUS)lpOverlapped
+								->Internal);
 				cp->func(cp, lpEntry->dwNumberOfBytesTransferred,
-						dwErrorCode);
+						(int)dwErrorCode);
 			}
 			n += n < INT_MAX;
 		}

@@ -2,7 +2,7 @@
  * This header file is part of the utilities library; it contains the bit
  * function definitions.
  *
- * @copyright 2014-2020 Lely Industries N.V.
+ * @copyright 2014-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -322,7 +322,7 @@ bswap64(uint_least64_t x)
 LELY_UTIL_BITS_INLINE int
 cls8(uint_least8_t x)
 {
-	return clz8(~x);
+	return clz8((uint_least8_t)~x);
 }
 
 #if defined(_MSC_VER) || defined(__GNUC__) || __has_builtin(__builtin_clz)
@@ -342,7 +342,7 @@ clz8(uint_least8_t x)
 LELY_UTIL_BITS_INLINE int
 cls16(uint_least16_t x)
 {
-	return clz16(~x);
+	return clz16((uint_least16_t)~x);
 }
 
 LELY_UTIL_BITS_INLINE int
@@ -408,7 +408,7 @@ clz64(uint_least64_t x)
 LELY_UTIL_BITS_INLINE int
 cts8(uint_least8_t x)
 {
-	return ctz8(~x);
+	return ctz8((uint_least8_t)~x);
 }
 
 #if defined(_MSC_VER) || defined(__GNUC__) || __has_builtin(__builtin_ctz)
@@ -428,7 +428,7 @@ ctz8(uint_least8_t x)
 LELY_UTIL_BITS_INLINE int
 cts16(uint_least16_t x)
 {
-	return ctz16(~x);
+	return ctz16((uint_least16_t)~x);
 }
 
 LELY_UTIL_BITS_INLINE int
@@ -510,7 +510,7 @@ ffs8(uint_least8_t x)
 LELY_UTIL_BITS_INLINE int
 ffz8(uint_least8_t x)
 {
-	return ffs8(~x);
+	return ffs8((uint_least8_t)~x);
 }
 
 LELY_UTIL_BITS_INLINE int
@@ -533,7 +533,7 @@ ffs16(uint_least16_t x)
 LELY_UTIL_BITS_INLINE int
 ffz16(uint_least16_t x)
 {
-	return ffs16(~x);
+	return ffs16((uint_least16_t)~x);
 }
 
 LELY_UTIL_BITS_INLINE int
@@ -544,9 +544,9 @@ ffs32(uint_least32_t x)
 	unsigned long Index;
 	return _BitScanForward(&Index, x) ? Index + 1 : 0;
 #elif (defined(__GNUC__) || __has_builtin(__builtin_ffs)) && __WORDSIZE == 64
-	return __builtin_ffs(x);
+	return __builtin_ffs((int)x);
 #elif defined(__GNUC__) || __has_builtin(__builtin_ffsl)
-	return __builtin_ffsl(x);
+	return __builtin_ffsl((long)x);
 #else
 	// clang-format off
 	return (x != 0) ? ((x & UINT16_C(0xffff))
@@ -569,9 +569,9 @@ ffs64(uint_least64_t x)
 	unsigned long Index;
 	return _BitScanForward64(&Index, x) ? Index + 1 : 0;
 #elif (defined(__GNUC__) || __has_builtin(__builtin_ffsl)) && LONG_BIT == 64
-	return __builtin_ffsl(x);
+	return __builtin_ffsl((int)x);
 #elif defined(__GNUC__) || __has_builtin(__builtin_ffsll)
-	return __builtin_ffsll(x);
+	return __builtin_ffsll((long)x);
 #else
 	// clang-format off
 	return (x != 0) ? ((x & UINT32_C(0xffffffff))

@@ -1012,9 +1012,11 @@ co_1a00_dn_ind(co_sub_t *sub, struct co_sdo_req *req, void *data)
 
 				// See figure 73 (Structure of TPDO mapping) in
 				// CiA 301.
-				co_unsigned16_t idx = (map >> 16) & 0xffff;
-				co_unsigned8_t subidx = (map >> 8) & 0xff;
-				co_unsigned8_t len = map & 0xff;
+				co_unsigned16_t idx =
+						(co_unsigned16_t)(map >> 16)
+						& 0xffffu;
+				co_unsigned8_t subidx = (map >> 8) & 0xffu;
+				co_unsigned8_t len = map & 0xffu;
 
 				// Check the PDO length (in bits).
 				if ((bits += len) > CAN_MAX_LEN * 8)
@@ -1052,8 +1054,9 @@ co_1a00_dn_ind(co_sub_t *sub, struct co_sdo_req *req, void *data)
 
 		if (map) {
 			// See figure 73 (Structure of TPDO mapping) in CiA 301.
-			co_unsigned16_t idx = (map >> 16) & 0xffff;
-			co_unsigned8_t subidx = (map >> 8) & 0xff;
+			co_unsigned16_t idx =
+					(co_unsigned16_t)(map >> 16) & 0xffffu;
+			co_unsigned8_t subidx = (map >> 8) & 0xffu;
 			// Check whether the sub-object exists and can be mapped
 			// into a PDO.
 			if ((ac = co_dev_chk_tpdo(pdo->dev, idx, subidx)))
@@ -1162,7 +1165,7 @@ co_tpdo_init_frame(co_tpdo_t *pdo, struct can_msg *msg)
 			pdo->ind(pdo, ac, NULL, 0, pdo->data);
 		return -1;
 	}
-	msg->len = n;
+	msg->len = (co_unsigned8_t)n;
 
 	return 0;
 }

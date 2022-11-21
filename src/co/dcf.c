@@ -5,7 +5,7 @@
  *
  * @see lely/co/dcf.h
  *
- * @copyright 2020 Lely Industries N.V.
+ * @copyright 2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -215,7 +215,8 @@ co_dev_parse_cfg(co_dev_t *dev, const config_t *cfg)
 
 	val = config_get(cfg, "DeviceInfo", "VendorNumber");
 	if (val && *val)
-		co_dev_set_vendor_id(dev, strtoul(val, NULL, 0));
+		co_dev_set_vendor_id(
+				dev, (co_unsigned32_t)strtoul(val, NULL, 0));
 
 	// clang-format off
 	if (co_dev_set_product_name(dev,
@@ -227,11 +228,13 @@ co_dev_parse_cfg(co_dev_t *dev, const config_t *cfg)
 
 	val = config_get(cfg, "DeviceInfo", "ProductNumber");
 	if (val && *val)
-		co_dev_set_product_code(dev, strtoul(val, NULL, 0));
+		co_dev_set_product_code(
+				dev, (co_unsigned32_t)strtoul(val, NULL, 0));
 
 	val = config_get(cfg, "DeviceInfo", "RevisionNumber");
 	if (val && *val)
-		co_dev_set_revision(dev, strtoul(val, NULL, 0));
+		co_dev_set_revision(
+				dev, (co_unsigned32_t)strtoul(val, NULL, 0));
 
 	// clang-format off
 	if (co_dev_set_order_code(dev,
@@ -270,7 +273,7 @@ co_dev_parse_cfg(co_dev_t *dev, const config_t *cfg)
 
 	val = config_get(cfg, "DeviceInfo", "LSS_Supported");
 	if (val && *val)
-		co_dev_set_lss(dev, strtoul(val, NULL, 0));
+		co_dev_set_lss(dev, (int)strtoul(val, NULL, 0));
 
 	// For each of the basic data types, check whether it is supported for
 	// mapping dummy entries in PDOs.
@@ -339,7 +342,8 @@ co_dev_parse_cfg(co_dev_t *dev, const config_t *cfg)
 	// Parse compact PDO definitions after the explicit object definitions
 	// to prevent overwriting PDOs.
 	val = config_get(cfg, "DeviceInfo", "CompactPDO");
-	unsigned int mask = val && *val ? strtoul(val, NULL, 0) : 0;
+	unsigned int mask =
+			val && *val ? (unsigned int)strtoul(val, NULL, 0) : 0;
 	if (mask) {
 		co_unsigned16_t nrpdo = 0;
 		val = config_get(cfg, "DeviceInfo", "NrOfRxPDO");
@@ -359,7 +363,7 @@ co_dev_parse_cfg(co_dev_t *dev, const config_t *cfg)
 				nrpdo--;
 			}
 			// Add missing communication and/or mapping objects.
-			if (co_rpdo_build(dev, i + 1, mask) == -1)
+			if (co_rpdo_build(dev, i + 1, (int)mask) == -1)
 				goto error_parse_pdo;
 		}
 
@@ -381,7 +385,7 @@ co_dev_parse_cfg(co_dev_t *dev, const config_t *cfg)
 				ntpdo--;
 			}
 			// Add missing communication and/or mapping objects.
-			if (co_tpdo_build(dev, i + 1, mask) == -1)
+			if (co_tpdo_build(dev, i + 1, (int)mask) == -1)
 				goto error_parse_pdo;
 		}
 	}
@@ -399,7 +403,7 @@ co_dev_parse_cfg(co_dev_t *dev, const config_t *cfg)
 	val = config_get(cfg, "DeviceComissioning", "NetNumber");
 	// clang-format off
 	if (val && *val && co_dev_set_netid(dev,
-			(co_unsigned32_t)strtoul(val, NULL, 0)) == -1) {
+			(co_unsigned8_t)strtoul(val, NULL, 0)) == -1) {
 		// clang-format on
 		diag(DIAG_ERROR, get_errc(),
 				"invalid network-ID (%s) specified", val);
@@ -422,7 +426,7 @@ co_dev_parse_cfg(co_dev_t *dev, const config_t *cfg)
 	val = config_get(cfg, "DeviceComissioning", "LSS_SerialNumber");
 	// clang-format off
 	if (val && *val && !co_dev_set_val_u32(dev, 0x1018, 0x04,
-			strtoul(val, NULL, 0))) {
+			(co_unsigned32_t)strtoul(val, NULL, 0))) {
 		// clang-format on
 		diag(DIAG_ERROR, get_errc(), "unable to set serial number");
 		goto error_parse_dcf;
@@ -857,11 +861,11 @@ co_sub_parse_cfg(co_sub_t *sub, const config_t *cfg, const char *section)
 
 	val = config_get(cfg, section, "PDOMapping");
 	if (val && *val)
-		co_sub_set_pdo_mapping(sub, strtoul(val, NULL, 0));
+		co_sub_set_pdo_mapping(sub, strtoul(val, NULL, 0) != 0);
 
 	val = config_get(cfg, section, "ObjFlags");
 	if (val && *val)
-		sub->flags |= strtoul(val, NULL, 0);
+		sub->flags = (sub->flags | strtoul(val, NULL, 0)) & 0x03ffffffu;
 
 	val = config_get(cfg, section, "ParameterValue");
 	if (val && *val) {
@@ -886,7 +890,7 @@ co_sub_parse_cfg(co_sub_t *sub, const config_t *cfg, const char *section)
 			diag_at(DIAG_WARNING, 0, &at,
 					"AccessType must be 'ro' or 'const' when using UploadFile");
 			access |= CO_ACCESS_READ;
-			access &= ~CO_ACCESS_WRITE;
+			access &= (unsigned int)~CO_ACCESS_WRITE;
 			co_sub_set_access(sub, access);
 		}
 
@@ -904,7 +908,7 @@ co_sub_parse_cfg(co_sub_t *sub, const config_t *cfg, const char *section)
 		if ((access & CO_ACCESS_READ) || !(access & CO_ACCESS_WRITE)) {
 			diag_at(DIAG_WARNING, 0, &at,
 					"AccessType must be 'wo' when using DownloadFile");
-			access &= ~CO_ACCESS_READ;
+			access &= (unsigned int)~CO_ACCESS_READ;
 			access |= CO_ACCESS_WRITE;
 			co_sub_set_access(sub, access);
 		}
@@ -1014,7 +1018,7 @@ co_rpdo_build(co_dev_t *dev, co_unsigned16_t num, int mask)
 	co_unsigned8_t n = 0;
 	for (int i = 0; i < 6; i++) {
 		if (mask & (1 << i))
-			n = i + 1;
+			n = (co_unsigned8_t)(i + 1);
 	}
 
 	// Create the RPDO communication parameter if it does not exist.
@@ -1049,7 +1053,7 @@ co_rpdo_build(co_dev_t *dev, co_unsigned16_t num, int mask)
 				return -1;
 			co_unsigned32_t cobid = CO_PDO_COBID_VALID;
 			if (num <= 4) {
-				cobid = num * 0x100 + 0x100 + 0xff;
+				cobid = num * 0x100u + 0x100u + 0xffu;
 				sub->flags |= CO_OBJ_FLAGS_DEF_NODEID;
 				sub->flags |= CO_OBJ_FLAGS_VAL_NODEID;
 			}
@@ -1148,7 +1152,7 @@ co_tpdo_build(co_dev_t *dev, co_unsigned16_t num, int mask)
 	co_unsigned8_t n = 0;
 	for (int i = 0; i < 6; i++) {
 		if (mask & (1 << i))
-			n = i + 1;
+			n = (co_unsigned8_t)(i + 1);
 	}
 
 	// Create the TPDO communication parameter if it does not exist.
@@ -1183,7 +1187,7 @@ co_tpdo_build(co_dev_t *dev, co_unsigned16_t num, int mask)
 				return -1;
 			co_unsigned32_t cobid = CO_PDO_COBID_VALID;
 			if (num <= 4) {
-				cobid = num * 0x100 + 0x80 + 0xff;
+				cobid = num * 0x100u + 0x80u + 0xffu;
 				sub->flags |= CO_OBJ_FLAGS_DEF_NODEID;
 				sub->flags |= CO_OBJ_FLAGS_VAL_NODEID;
 			}
@@ -1319,9 +1323,9 @@ co_val_lex_dcf(co_unsigned16_t type, void *val, const char *begin,
 				assert(c32 < 0xd800 || c32 > 0xdfff);
 				// Store the character as UTF-16LE.
 				if (c32 <= 0xffff) {
-					*us++ = c32;
+					*us++ = (char16_t)c32;
 				} else {
-					c32 -= 0x10000ul;
+					c32 -= (char32_t)0x10000ul;
 					*us++ = 0xd800 + ((c32 >> 10) & 0x3ff);
 					*us++ = 0xdc00 + (c32 & 0x3ff);
 				}
@@ -1365,7 +1369,7 @@ co_val_lex_id(const char *begin, const char *end, struct floc *at)
 	cp += lex_char('+', cp, end, at);
 	cp += lex_ctype(isspace, cp, end, at);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static void
@@ -1377,7 +1381,7 @@ co_val_set_id(co_unsigned16_t type, void *val, co_unsigned8_t id)
 	switch (type) {
 #define LELY_CO_DEFINE_TYPE(a, b, c, d) \
 	case CO_DEFTYPE_##a: \
-		u->c += id; \
+		u->c += (d)id; \
 		break;
 #include <lely/co/def/basic.def>
 #undef LELY_CO_DEFINE_TYPE

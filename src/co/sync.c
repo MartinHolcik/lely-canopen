@@ -402,8 +402,8 @@ co_sync_update(co_sync_t *sync)
 		can_net_get_time(sync->net, &start);
 		int_least64_t nsec = start.tv_sec * INT64_C(1000000000)
 				+ start.tv_nsec;
-		nsec %= (uint_least64_t)sync->us * 1000;
-		timespec_sub_nsec(&start, nsec);
+		nsec %= (int_least64_t)sync->us * 1000;
+		timespec_sub_nsec(&start, (uint_least64_t)nsec);
 		timespec_add_usec(&start, sync->us);
 		struct timespec interval = { 0, 0 };
 		timespec_add_usec(&interval, sync->us);

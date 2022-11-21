@@ -1274,10 +1274,10 @@ co_gw_net_dn_ind(co_nmt_t *nmt, co_unsigned8_t id, co_unsigned16_t idx,
 		.srv = CO_GW_SRV_SDO,
 		.net = net->id,
 		.node = id,
-		.nbyte = nbyte,
+		.nbyte = (co_unsigned32_t)nbyte,
 		.up = 0,
 		.data = NULL,
-		._size = size };
+		._size = (co_unsigned32_t)size };
 	co_gw_send_srv(net->gw, (struct co_gw_srv *)&ind);
 
 	if (net->dn_ind)
@@ -1295,10 +1295,10 @@ co_gw_net_up_ind(co_nmt_t *nmt, co_unsigned8_t id, co_unsigned16_t idx,
 		.srv = CO_GW_SRV_SDO,
 		.net = net->id,
 		.node = id,
-		.nbyte = nbyte,
+		.nbyte = (co_unsigned32_t)nbyte,
 		.up = 1,
 		.data = NULL,
-		._size = size };
+		._size = (co_unsigned32_t)size };
 	co_gw_send_srv(net->gw, (struct co_gw_srv *)&ind);
 
 	if (net->up_ind)
@@ -1495,7 +1495,7 @@ co_gw_job_sdo_up_con(co_csdo_t *sdo, co_unsigned16_t idx, co_unsigned8_t subidx,
 				.srv = req->srv,
 				.data = req->data,
 				.type = req->type,
-				.len = n };
+				.len = (co_unsigned32_t)n };
 			memcpy(con->val, ptr, n);
 			co_gw_send_srv(job->net->gw, (struct co_gw_srv *)con);
 
@@ -1545,10 +1545,10 @@ co_gw_job_sdo_ind(const co_csdo_t *sdo, co_unsigned16_t idx,
 		.srv = CO_GW_SRV_SDO,
 		.net = job->net->id,
 		.node = co_csdo_get_num(job->data),
-		.nbyte = nbyte,
+		.nbyte = (co_unsigned32_t)nbyte,
 		.up = job->req.srv == CO_GW_SRV_SDO_UP,
 		.data = job->req.data,
-		._size = size };
+		._size = (co_unsigned32_t)size };
 	co_gw_send_srv(job->net->gw, (struct co_gw_srv *)&ind);
 }
 

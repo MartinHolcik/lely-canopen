@@ -735,7 +735,7 @@ io_can_net_wait_next_func(struct ev_task *task)
 			submit_wait_next = 1;
 		}
 	}
-	net->wait_next_submitted = submit_wait_next;
+	net->wait_next_submitted = !!submit_wait_next;
 
 #if !LELY_NO_THREADS
 	mtx_unlock(&net->mtx);
@@ -1015,7 +1015,8 @@ io_can_net_do_write(io_can_net_t *net)
 		net->wait_confirm_submitted = 1;
 		io_clock_gettime(io_can_net_get_clock(net),
 				&net->wait_confirm.value);
-		timespec_add_msec(&net->wait_confirm.value, net->txtimeo);
+		timespec_add_msec(&net->wait_confirm.value,
+				(unsigned int)net->txtimeo);
 		io_tqueue_submit_wait(net->tq, &net->wait_confirm);
 	}
 }

@@ -686,9 +686,11 @@ co_1600_dn_ind(co_sub_t *sub, struct co_sdo_req *req, void *data)
 				if (!map)
 					continue;
 
-				co_unsigned16_t idx = (map >> 16) & 0xffff;
-				co_unsigned8_t subidx = (map >> 8) & 0xff;
-				co_unsigned8_t len = map & 0xff;
+				co_unsigned16_t idx =
+						(co_unsigned16_t)(map >> 16)
+						& 0xffffu;
+				co_unsigned8_t subidx = (map >> 8) & 0xffu;
+				co_unsigned8_t len = map & 0xffu;
 
 				// Check the PDO length.
 				if ((bits += len) > CAN_MAX_LEN * 8)
@@ -726,8 +728,9 @@ co_1600_dn_ind(co_sub_t *sub, struct co_sdo_req *req, void *data)
 			return CO_SDO_AC_PARAM_VAL;
 
 		if (map) {
-			co_unsigned16_t idx = (map >> 16) & 0xffff;
-			co_unsigned8_t subidx = (map >> 8) & 0xff;
+			co_unsigned16_t idx =
+					(co_unsigned16_t)(map >> 16) & 0xffffu;
+			co_unsigned8_t subidx = (map >> 8) & 0xffu;
 			// Check whether the sub-object exists and can be mapped
 			// into a PDO (or is a valid dummy entry).
 			if ((ac = co_dev_chk_rpdo(pdo->dev, idx, subidx)))

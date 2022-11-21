@@ -4,7 +4,7 @@
  *
  * @see lely/co/val.h
  *
- * @copyright 2017-2020 Lely Industries N.V.
+ * @copyright 2017-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -454,7 +454,7 @@ co_val_read(co_unsigned16_t type, void *val, const uint_least8_t *begin,
 	assert(begin || begin == end);
 	assert(end >= begin);
 
-	size_t n = end - begin;
+	size_t n = (size_t)(end - begin);
 
 	if (co_type_is_array(type)) {
 		if (val) {
@@ -558,9 +558,11 @@ co_val_read(co_unsigned16_t type, void *val, const uint_least8_t *begin,
 				for (size_t i = 0; i < 3; i++)
 					u24 |= (co_unsigned24_t)*begin++
 							<< 8 * i;
-				u->i24 = u24 > CO_INTEGER24_MAX
+				// clang-format off
+				u->i24 = (co_integer24_t)(u24 > CO_INTEGER24_MAX
 						? -(CO_UNSIGNED24_MAX + 1 - u24)
-						: u24;
+						: u24);
+				// clang-format on
 			}
 			return 3;
 		case CO_DEFTYPE_REAL64:
@@ -577,9 +579,11 @@ co_val_read(co_unsigned16_t type, void *val, const uint_least8_t *begin,
 				for (size_t i = 0; i < 5; i++)
 					u40 |= (co_unsigned40_t)*begin++
 							<< 8 * i;
-				u->i40 = u40 > CO_INTEGER40_MAX
+				// clang-format off
+				u->i40 = (co_integer40_t)(u40 > CO_INTEGER40_MAX
 						? -(CO_UNSIGNED40_MAX + 1 - u40)
-						: u40;
+						: u40);
+				// clang-format on
 			}
 			return 5;
 		case CO_DEFTYPE_INTEGER48:
@@ -590,9 +594,11 @@ co_val_read(co_unsigned16_t type, void *val, const uint_least8_t *begin,
 				for (size_t i = 0; i < 6; i++)
 					u48 |= (co_unsigned48_t)*begin++
 							<< 8 * i;
-				u->i48 = u48 > CO_INTEGER48_MAX
+				// clang-format off
+				u->i48 = (co_integer40_t)(u48 > CO_INTEGER48_MAX
 						? -(CO_UNSIGNED48_MAX + 1 - u48)
-						: u48;
+						: u48);
+				// clang-format on
 			}
 			return 6;
 		case CO_DEFTYPE_INTEGER56:
@@ -603,9 +609,11 @@ co_val_read(co_unsigned16_t type, void *val, const uint_least8_t *begin,
 				for (size_t i = 0; i < 7; i++)
 					u56 |= (co_unsigned56_t)*begin++
 							<< 8 * i;
-				u->i56 = u56 > CO_INTEGER56_MAX
+				// clang-format off
+				u->i56 = (co_integer56_t)(u56 > CO_INTEGER56_MAX
 						? -(CO_UNSIGNED56_MAX + 1 - u56)
-						: u56;
+						: u56);
+				// clang-format on
 			}
 			return 7;
 		case CO_DEFTYPE_INTEGER64:
@@ -862,9 +870,12 @@ co_val_write(co_unsigned16_t type, const void *val, uint_least8_t *begin,
 			return 6;
 		case CO_DEFTYPE_INTEGER24:
 			if (begin && (!end || end - begin >= 3)) {
+				// clang-format off
 				co_unsigned24_t u24 = u->i24 < 0
-						? CO_UNSIGNED24_MAX + 1 + u->i24
+						? CO_UNSIGNED24_MAX + 1
+						- (co_unsigned24_t)-u->i24
 						: (co_unsigned24_t)u->i24;
+				// clang-format on
 				for (size_t i = 0; i < 3; i++)
 					*begin++ = (u24 >> 8 * i) & 0xff;
 			}
@@ -875,27 +886,36 @@ co_val_write(co_unsigned16_t type, const void *val, uint_least8_t *begin,
 			return 8;
 		case CO_DEFTYPE_INTEGER40:
 			if (begin && (!end || end - begin >= 5)) {
+				// clang-format off
 				co_unsigned40_t u40 = u->i40 < 0
-						? CO_UNSIGNED40_MAX + 1 + u->i40
+						? CO_UNSIGNED40_MAX + 1
+						- (co_unsigned40_t)-u->i40
 						: (co_unsigned40_t)u->i40;
+				// clang-format on
 				for (size_t i = 0; i < 5; i++)
 					*begin++ = (u40 >> 8 * i) & 0xff;
 			}
 			return 5;
 		case CO_DEFTYPE_INTEGER48:
 			if (begin && (!end || end - begin >= 6)) {
-				co_unsigned48_t u48 = u->i48 < 0
-						? CO_UNSIGNED48_MAX + 1 + u->i48
+				// clang-format off
+				co_unsigned48_t u48 =u->i48 < 0
+						? CO_UNSIGNED48_MAX + 1
+						- (co_unsigned48_t)-u->i48
 						: (co_unsigned48_t)u->i48;
+				// clang-format on
 				for (size_t i = 0; i < 6; i++)
 					*begin++ = (u48 >> 8 * i) & 0xff;
 			}
 			return 6;
 		case CO_DEFTYPE_INTEGER56:
 			if (begin && (!end || end - begin >= 7)) {
+				// clang-format off
 				co_unsigned56_t u56 = u->i56 < 0
-						? CO_UNSIGNED56_MAX + 1 + u->i56
+						? CO_UNSIGNED56_MAX + 1
+						- (co_unsigned48_t)-u->i56
 						: (co_unsigned56_t)u->i56;
+				// clang-format on
 				for (size_t i = 0; i < 7; i++)
 					*begin++ = (u56 >> 8 * i) & 0xff;
 			}

@@ -4,7 +4,7 @@
  *
  * @see lely/io/serial.h
  *
- * @copyright 2017-2020 Lely Industries N.V.
+ * @copyright 2017-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -143,12 +143,12 @@ io_open_serial(const char *path, io_attr_t *attr)
 		*(struct termios *)attr = ios;
 
 	// These options are taken from cfmakeraw() on BSD.
-	ios.c_iflag &= ~(BRKINT | ICRNL | IGNBRK | IGNCR | INLCR | ISTRIP | IXON
-			| PARMRK);
-	ios.c_oflag &= ~OPOST;
-	ios.c_cflag &= ~(CSIZE | PARENB);
+	ios.c_iflag &= (tcflag_t)(~(BRKINT | ICRNL | IGNBRK | IGNCR | INLCR
+			| ISTRIP | IXON | PARMRK));
+	ios.c_oflag &= (tcflag_t)~OPOST;
+	ios.c_cflag &= (tcflag_t)(~(CSIZE | PARENB));
 	ios.c_cflag |= CS8;
-	ios.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
+	ios.c_lflag &= (tcflag_t)(~(ECHO | ECHONL | ICANON | IEXTEN | ISIG));
 
 	ios.c_iflag |= IGNPAR;
 	ios.c_cflag |= CREAD | CLOCAL;

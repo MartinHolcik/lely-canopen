@@ -4,7 +4,7 @@
  *
  * @see lely/util/print.h
  *
- * @copyright 2017-2019 Lely Industries N.V.
+ * @copyright 2017-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -61,10 +61,13 @@ vprint_fmt(char **pbegin, char *end, const char *format, va_list ap)
 		va_end(aq);
 		if (chars < 0)
 			return 0;
-		memcpy(*pbegin, buf, end ? MIN(end - *pbegin, chars) : chars);
+		// clang-format off
+		memcpy(*pbegin, buf, (size_t)(
+				end ? MIN(end - *pbegin, chars) : chars));
+		// clang-format on
 		(*pbegin) += chars;
 		free(buf);
-		return chars;
+		return (size_t)chars;
 	}
 	return vsnprintf(NULL, 0, format, ap);
 #else
@@ -76,10 +79,13 @@ vprint_fmt(char **pbegin, char *end, const char *format, va_list ap)
 	if (pbegin && *pbegin && (!end || *pbegin < end)) {
 		char buf[chars + 1];
 		vsprintf(buf, format, ap);
-		memcpy(*pbegin, buf, end ? MIN(end - *pbegin, chars) : chars);
+		// clang-format off
+		memcpy(*pbegin, buf, (size_t)(
+				end ? MIN(end - *pbegin, chars) : chars));
+		// clang-format on
 		(*pbegin) += chars;
 	}
-	return chars;
+	return (size_t)chars;
 #endif
 }
 
@@ -90,18 +96,18 @@ print_utf8(char **pbegin, char *end, char32_t c32)
 
 	// Fast path for ASCII characters.
 	if (c32 <= 0x7f)
-		return print_char(pbegin, end, c32);
+		return print_char(pbegin, end, (int)c32);
 
 	// Replace invalid characters by the replacement character (U+FFFD).
 	if ((c32 >= 0xd800 && c32 <= 0xdfff) || c32 > 0x10ffff)
 		c32 = 0xfffd;
 
 	int n = c32 <= 0x07ff ? 1 : (c32 <= 0xffff ? 2 : 3);
-	size_t chars = print_char(
-			pbegin, end, ((c32 >> (n * 6)) & 0x3f) | mark[n]);
+	size_t chars = print_char(pbegin, end,
+			(int)(((c32 >> (n * 6)) & 0x3f) | mark[n]));
 	while (n--)
-		chars += print_char(
-				pbegin, end, ((c32 >> (n * 6)) & 0x3f) | 0x80);
+		chars += print_char(pbegin, end,
+				(int)(((c32 >> (n * 6)) & 0x3f) | 0x80));
 	return chars;
 }
 
@@ -153,19 +159,20 @@ print_c99_esc(char **pbegin, char *end, char32_t c32)
 			chars += print_char(pbegin, end, 'v');
 			break;
 		default:
-			if (isprint(c32)) {
-				chars += print_char(pbegin, end, c32);
+			if (isprint((unsigned char)c32)) {
+				chars += print_char(pbegin, end, (int)c32);
 			} else {
 				// For non-printable characters, we use an octal
 				// escape sequence.
 				chars += print_char(pbegin, end, '\\');
 				if ((c32 >> 6) & 7)
 					chars += print_char(pbegin, end,
-							otoc(c32 >> 6));
+							otoc((int)(c32 >> 6)));
 				if ((c32 >> 3) & 7)
 					chars += print_char(pbegin, end,
-							otoc(c32 >> 3));
-				chars += print_char(pbegin, end, otoc(c32));
+							otoc((int)(c32 >> 3)));
+				chars += print_char(
+						pbegin, end, otoc((int)c32));
 			}
 			break;
 		}
@@ -183,7 +190,7 @@ print_c99_esc(char **pbegin, char *end, char32_t c32)
 		// Print the hex digits.
 		for (int i = 0; i < n; i++)
 			chars += print_char(pbegin, end,
-					xtoc(c32 >> (4 * (n - i - 1))));
+					xtoc((int)(c32 >> (4 * (n - i - 1)))));
 	}
 
 	return chars;
@@ -295,7 +302,7 @@ print_base64(char **pbegin, char *end, const void *ptr, size_t n)
 			chars += print_char(pbegin, end, '\n');
 		}
 
-		c = n ? (--n, tab[bp[2] & 0x3f]) : '=';
+		c = (char)(n ? (--n, tab[bp[2] & 0x3f]) : '=');
 		chars += print_char(pbegin, end, c);
 		if (n && !((chars + 2) % 78)) {
 			chars += print_char(pbegin, end, '\r');

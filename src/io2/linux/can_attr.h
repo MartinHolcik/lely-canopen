@@ -2,7 +2,7 @@
  * This is the internal header file of the SocketCAN rtnetlink attributes
  * functions.
  *
- * @copyright 2015-2019 Lely Industries N.V.
+ * @copyright 2015-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -86,7 +86,7 @@ io_can_attr_get(struct io_can_attr *attr, unsigned int ifindex)
 		goto error_rtnl_open;
 	}
 
-	if (rtnl_send_getlink_request(&rth, AF_UNSPEC, ARPHRD_CAN, ifindex)
+	if (rtnl_send_getlink_request(&rth, AF_UNSPEC, ARPHRD_CAN, (int)ifindex)
 			== -1) {
 		errsv = errno;
 		goto error_rtnl_send_getlink_request;
@@ -123,6 +123,12 @@ io_can_attr_parse(struct nlmsghdr *nlh, size_t len, void *arg)
 		errno = ENODEV;
 		return -1;
 	}
+
+	// Suppress warnings in IFLA_PAYLOAD() and RTA_PAYLOAD().
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#endif
 
 #if !LELY_NO_CANFD
 	struct rtattr *mtu =
@@ -188,7 +194,7 @@ io_can_attr_parse(struct nlmsghdr *nlh, size_t len, void *arg)
 				IFLA_CAN_BITTIMING);
 		if (rta && RTA_PAYLOAD(rta) >= sizeof(struct can_bittiming)) {
 			struct can_bittiming *data = RTA_DATA(rta);
-			attr->nominal = data->bitrate;
+			attr->nominal = (int)data->bitrate;
 		}
 
 #if !LELY_NO_CANFD
@@ -196,10 +202,14 @@ io_can_attr_parse(struct nlmsghdr *nlh, size_t len, void *arg)
 				IFLA_CAN_DATA_BITTIMING);
 		if (rta && RTA_PAYLOAD(rta) >= sizeof(struct can_bittiming)) {
 			struct can_bittiming *data = RTA_DATA(rta);
-			attr->data = data->bitrate;
+			attr->data = (int)data->bitrate;
 		}
 #endif
 	}
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 	return 0;
 }

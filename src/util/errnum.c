@@ -4,7 +4,7 @@
  *
  * @see lely/util/errnum.h
  *
- * @copyright 2013-2020 Lely Industries N.V.
+ * @copyright 2013-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -932,7 +932,7 @@ int
 get_errc(void)
 {
 #if _WIN32
-	return GetLastError();
+	return (int)GetLastError();
 #elif LELY_NO_ERRNO
 	return 0;
 #else
@@ -944,7 +944,7 @@ void
 set_errc(int errc)
 {
 #if _WIN32
-	SetLastError(errc);
+	SetLastError((DWORD)errc);
 #elif LELY_NO_ERRNO
 	(void)errc;
 #else
@@ -1001,8 +1001,9 @@ errc2str_r(int errc, char *strerrbuf, size_t buflen)
 	// clang-format off
 	if (!FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM
 					| FORMAT_MESSAGE_IGNORE_INSERTS,
-			NULL, errc, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-			strerrbuf, buflen, NULL))
+			NULL, (DWORD)errc,
+			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+			strerrbuf, (DWORD)buflen, NULL))
 		return NULL;
 	// clang-format on
 	// Remove terminating line-break ("\r\n") from error message.

@@ -2,7 +2,7 @@
  * This is the internal header file of the default implementation of the I/O
  * device handle methods.
  *
- * @copyright 2017-2020 Lely Industries N.V.
+ * @copyright 2017-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -100,7 +100,7 @@ retry:
 	io_handle_unlock(handle);
 
 	// clang-format off
-	if (ReadFile(handle->fd, buf, nbytes, &dwNumberOfBytesRead,
+	if (ReadFile(handle->fd, buf, (DWORD)nbytes, &dwNumberOfBytesRead,
 			&overlapped))
 		// clang-format on
 		goto done;
@@ -131,14 +131,14 @@ retry:
 	if (nbytes && !dwNumberOfBytesRead) {
 		if (!(flags & IO_FLAG_NONBLOCK))
 			goto retry;
-		dwErrCode = errnum2c(ERRNUM_AGAIN);
+		dwErrCode = (DWORD)errnum2c(ERRNUM_AGAIN);
 		goto error_dwNumberOfBytesRead;
 	}
 
 done:
 	CloseHandle(overlapped.hEvent);
 	SetLastError(dwErrCode);
-	return dwNumberOfBytesRead;
+	return (ssize_t)dwNumberOfBytesRead;
 
 error_dwNumberOfBytesRead:
 error_GetOverlappedResult:
@@ -182,7 +182,7 @@ retry:
 	io_handle_unlock(handle);
 
 	// clang-format off
-	if (WriteFile(handle->fd, buf, nbytes, &dwNumberOfBytesWritten,
+	if (WriteFile(handle->fd, buf, (DWORD)nbytes, &dwNumberOfBytesWritten,
 			&overlapped))
 		// clang-format on
 		goto done;
@@ -213,14 +213,14 @@ retry:
 	if (nbytes && !dwNumberOfBytesWritten) {
 		if (!(flags & IO_FLAG_NONBLOCK))
 			goto retry;
-		dwErrCode = errnum2c(ERRNUM_AGAIN);
+		dwErrCode = (DWORD)errnum2c(ERRNUM_AGAIN);
 		goto error_dwNumberOfBytesWritten;
 	}
 
 done:
 	CloseHandle(overlapped.hEvent);
 	SetLastError(dwErrCode);
-	return dwNumberOfBytesWritten;
+	return (ssize_t)dwNumberOfBytesWritten;
 
 error_dwNumberOfBytesWritten:
 error_GetOverlappedResult:

@@ -4,7 +4,7 @@
  *
  * @see lely/io2/linux/can.h
  *
- * @copyright 2015-2021 Lely Industries N.V.
+ * @copyright 2015-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -122,7 +122,8 @@ io_can_ctrl_init(io_can_ctrl_t *ctrl, unsigned int index, size_t txlen)
 
 	impl->flags = attr.flags;
 
-	if (io_if_set_txqlen(ARPHRD_CAN, impl->index, txlen) == -1)
+	if (io_if_set_txqlen(ARPHRD_CAN, (int)impl->index, (unsigned int)txlen)
+			== -1)
 		return NULL;
 
 	return ctrl;
@@ -268,7 +269,7 @@ io_can_ctrl_impl_set_bitrate(io_can_ctrl_t *ctrl, int nominal, int data)
 		.rta_type = IFLA_INFO_KIND };
 	strcpy(RTA_DATA(info_kind), "can");
 
-	linkinfo->rta_len += RTA_ALIGN(info_kind->rta_len);
+	linkinfo->rta_len += (unsigned short)RTA_ALIGN(info_kind->rta_len);
 
 	struct rtattr *info_data = RTA_TAIL(info_kind);
 	*info_data = (struct rtattr){ .rta_len = RTA_LENGTH(0),
@@ -278,9 +279,10 @@ io_can_ctrl_impl_set_bitrate(io_can_ctrl_t *ctrl, int nominal, int data)
 	*rta = (struct rtattr){ .rta_len = RTA_LENGTH(
 						sizeof(struct can_bittiming)),
 		.rta_type = IFLA_CAN_BITTIMING };
-	*(struct can_bittiming *)RTA_DATA(rta) =
-			(struct can_bittiming){ .bitrate = nominal };
-	info_data->rta_len += RTA_ALIGN(rta->rta_len);
+	*(struct can_bittiming *)RTA_DATA(rta) = (struct can_bittiming){
+		.bitrate = (unsigned int)nominal
+	};
+	info_data->rta_len += (unsigned short)RTA_ALIGN(rta->rta_len);
 	rta = RTA_TAIL(rta);
 
 #if LELY_NO_CANFD
@@ -290,14 +292,15 @@ io_can_ctrl_impl_set_bitrate(io_can_ctrl_t *ctrl, int nominal, int data)
 		*rta = (struct rtattr){ .rta_len = RTA_LENGTH(sizeof(
 							struct can_bittiming)),
 			.rta_type = IFLA_CAN_DATA_BITTIMING };
-		*(struct can_bittiming *)RTA_DATA(rta) =
-				(struct can_bittiming){ .bitrate = data };
-		info_data->rta_len += RTA_ALIGN(rta->rta_len);
+		*(struct can_bittiming *)RTA_DATA(rta) = (struct can_bittiming){
+			.bitrate = (unsigned int)data
+		};
+		info_data->rta_len += (unsigned short)RTA_ALIGN(rta->rta_len);
 		// rta = RTA_TAIL(rta); // Not needed if rta is not used below.
 	}
 #endif
 
-	linkinfo->rta_len += RTA_ALIGN(info_data->rta_len);
+	linkinfo->rta_len += (unsigned short)RTA_ALIGN(info_data->rta_len);
 
 	int errsv = 0;
 
@@ -314,8 +317,9 @@ io_can_ctrl_impl_set_bitrate(io_can_ctrl_t *ctrl, int nominal, int data)
 	}
 
 	// clang-format off
-	if (rtnl_send_newlink_request(&rth, AF_UNSPEC, ARPHRD_CAN, impl->index,
-			flags, linkinfo, RTA_ALIGN(linkinfo->rta_len)) == -1) {
+	if (rtnl_send_newlink_request(&rth, AF_UNSPEC, ARPHRD_CAN,
+			(int)impl->index, (unsigned int)flags, linkinfo,
+			RTA_ALIGN(linkinfo->rta_len)) == -1) {
 		// clang-format on
 		errsv = errno;
 		goto error_rtnl_send_newlink_request;

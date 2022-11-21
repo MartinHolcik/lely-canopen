@@ -501,7 +501,7 @@ can_timer_timeout(can_timer_t *timer, can_net_t *net, int timeout)
 	} else {
 		struct timespec start = { 0, 0 };
 		can_net_get_time(net, &start);
-		timespec_add_msec(&start, timeout);
+		timespec_add_msec(&start, (unsigned)timeout);
 
 		can_timer_start(timer, net, &start, NULL);
 	}

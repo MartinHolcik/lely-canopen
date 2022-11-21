@@ -2,7 +2,7 @@
  * This header file is part of the utilities library; it contains the time
  * function declarations.
  *
- * @copyright 2013-2020 Lely Industries N.V.
+ * @copyright 2013-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -134,7 +134,7 @@ timespec_add_sec(struct timespec *tp, uint_least64_t sec)
 {
 	assert(tp);
 
-	tp->tv_sec += sec;
+	tp->tv_sec += (time_t)sec;
 }
 
 LELY_UTIL_TIME_INLINE void
@@ -181,7 +181,7 @@ timespec_sub_sec(struct timespec *tp, uint_least64_t sec)
 {
 	assert(tp);
 
-	tp->tv_sec -= sec;
+	tp->tv_sec -= (time_t)sec;
 }
 
 LELY_UTIL_TIME_INLINE void

@@ -4,7 +4,7 @@
  *
  * @see lely/util/frbuf.h
  *
- * @copyright 2016-2020 Lely Industries N.V.
+ * @copyright 2016-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -280,9 +280,9 @@ frbuf_read(frbuf_t *buf, void *ptr, size_t size)
 
 #if _WIN32
 	DWORD nNumberOfBytesRead;
-	if (!ReadFile(buf->hFile, ptr, size, &nNumberOfBytesRead, NULL))
+	if (!ReadFile(buf->hFile, ptr, (DWORD)size, &nNumberOfBytesRead, NULL))
 		return -1;
-	return nNumberOfBytesRead;
+	return (ssize_t)nNumberOfBytesRead;
 #elif _POSIX_C_SOURCE >= 200112L && !defined(__NEWLIB__)
 	ssize_t result;
 	do
@@ -327,11 +327,11 @@ frbuf_pread(frbuf_t *buf, void *ptr, size_t size, intmax_t pos)
 
 	DWORD nNumberOfBytesRead;
 	OVERLAPPED Overlapped = { 0 };
-	ULARGE_INTEGER uli = { .QuadPart = pos };
+	ULARGE_INTEGER uli = { .QuadPart = (ULONGLONG)pos };
 	Overlapped.Offset = uli.LowPart;
 	Overlapped.OffsetHigh = uli.HighPart;
 	// clang-format off
-	if (!ReadFile(buf->hFile, ptr, size, &nNumberOfBytesRead,
+	if (!ReadFile(buf->hFile, ptr, (DWORD)size, &nNumberOfBytesRead,
 			&Overlapped)) {
 		// clang-format on
 		result = -1;
@@ -339,7 +339,7 @@ frbuf_pread(frbuf_t *buf, void *ptr, size_t size, intmax_t pos)
 		goto error_ReadFile;
 	}
 
-	result = nNumberOfBytesRead;
+	result = (ssize_t)nNumberOfBytesRead;
 
 error_ReadFile:
 	if (frbuf_set_pos(buf, oldpos) == -1 && !dwErrCode)
@@ -407,7 +407,7 @@ frbuf_map(frbuf_t *buf, intmax_t pos, size_t *psize)
 	size -= pos;
 
 	if (psize && *psize)
-		size = MIN((uintmax_t)size, *psize);
+		size = (intmax_t)MIN((uintmax_t)size, *psize);
 
 #if _WIN32
 	DWORD dwErrCode = 0;
@@ -415,13 +415,13 @@ frbuf_map(frbuf_t *buf, intmax_t pos, size_t *psize)
 	SYSTEM_INFO SystemInfo;
 	// cppcheck-suppress uninitvar
 	GetSystemInfo(&SystemInfo);
-	DWORD off = pos % SystemInfo.dwAllocationGranularity;
+	DWORD off = (DWORD)(pos % SystemInfo.dwAllocationGranularity);
 	if ((uintmax_t)size > (uintmax_t)(SIZE_MAX - off)) {
 		dwErrCode = ERROR_INVALID_PARAMETER;
 		goto error_size;
 	}
 
-	ULARGE_INTEGER MaximumSize = { .QuadPart = pos + size };
+	ULARGE_INTEGER MaximumSize = { .QuadPart = (ULONGLONG)(pos + size) };
 	buf->hFileMappingObject = CreateFileMapping(buf->hFile, NULL,
 			PAGE_READONLY, MaximumSize.HighPart,
 			MaximumSize.LowPart, NULL);
@@ -430,7 +430,7 @@ frbuf_map(frbuf_t *buf, intmax_t pos, size_t *psize)
 		goto error_CreateFileMapping;
 	}
 
-	ULARGE_INTEGER FileOffset = { .QuadPart = pos - off };
+	ULARGE_INTEGER FileOffset = { .QuadPart = (ULONGLONG)(pos - off) };
 	buf->lpBaseAddress = MapViewOfFile(buf->hFileMappingObject,
 			FILE_MAP_READ, FileOffset.HighPart, FileOffset.LowPart,
 			(SIZE_T)(off + size));
@@ -456,25 +456,25 @@ error_size:
 	if (page_size <= 0)
 		return NULL;
 	intmax_t off = pos % page_size;
-	if ((uintmax_t)size > (uintmax_t)(SIZE_MAX - off)) {
+	if ((uintmax_t)size > (uintmax_t)(SIZE_MAX - (size_t)off)) {
 		errno = EOVERFLOW;
 		return NULL;
 	}
 
 #ifdef __linux__
-	buf->addr = mmap64(NULL, off + size, PROT_READ, MAP_SHARED, buf->fd,
-			pos - off);
+	buf->addr = mmap64(NULL, (size_t)(off + size), PROT_READ, MAP_SHARED,
+			buf->fd, pos - off);
 #else
 	// TODO: Check if `pos - off` does not overflow the range of off_t.
-	buf->addr = mmap(NULL, off + size, PROT_READ, MAP_SHARED, buf->fd,
-			pos - off);
+	buf->addr = mmap(NULL, (size_t)(off + size), PROT_READ, MAP_SHARED,
+			buf->fd, pos - off);
 #endif
 	if (buf->addr == MAP_FAILED)
 		return NULL;
-	buf->len = off + size;
+	buf->len = (size_t)(off + size);
 
 	if (psize)
-		*psize = size;
+		*psize = (size_t)size;
 
 	return (char *)buf->addr + off;
 #else
@@ -486,7 +486,7 @@ error_size:
 		goto error_malloc_map;
 	}
 
-	ssize_t result = frbuf_pread(buf, buf->map, size, pos);
+	ssize_t result = frbuf_pread(buf, buf->map, (size_t)size, pos);
 	if (result == -1) {
 		errc = get_errc();
 		goto error_pread;
@@ -494,7 +494,7 @@ error_size:
 	size = result;
 
 	if (psize)
-		*psize = size;
+		*psize = (size_t)size;
 
 	return buf->map;
 

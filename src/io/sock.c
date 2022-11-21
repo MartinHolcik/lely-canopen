@@ -4,7 +4,7 @@
  *
  * @see lely/io/sock.h
  *
- * @copyright 2017-2020 Lely Industries N.V.
+ * @copyright 2017-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -416,7 +416,7 @@ io_sock_bind(io_handle_t handle, const io_addr_t *addr)
 	}
 
 	return bind((SOCKET)handle->fd, (const struct sockaddr *)&addr->addr,
-			addr->addrlen);
+			(socklen_t)addr->addrlen);
 }
 
 int
@@ -718,11 +718,11 @@ io_sock_set_keepalive(io_handle_t handle, int keepalive, int time, int interval)
 	}
 
 #if _WIN32
-	struct tcp_keepalive kaInBuffer = { .onoff = keepalive,
+	struct tcp_keepalive kaInBuffer = { .onoff = (unsigned)keepalive,
 		// The timeout is specified in milliseconds.
-		.keepalivetime = time * 1000,
+		.keepalivetime = (unsigned)time * 1000,
 		// The interval is specified in milliseconds.
-		.keepaliveinterval = interval * 1000 };
+		.keepaliveinterval = (unsigned)interval * 1000 };
 	DWORD dwBytesReturned;
 	// clang-format off
 	return WSAIoctl((SOCKET)handle->fd, SIO_KEEPALIVE_VALS, &kaInBuffer,
@@ -786,7 +786,11 @@ io_sock_set_linger(io_handle_t handle, int time)
 		return -1;
 	}
 
+#if _WIN32
+	struct linger optval = { !!time, (unsigned short)time };
+#else
 	struct linger optval = { !!time, time };
+#endif
 	// clang-format off
 	return setsockopt((SOCKET)handle->fd, SOL_SOCKET, SO_LINGER,
 			(const char *)&optval, sizeof(optval)) ? -1 : 0;
@@ -873,7 +877,7 @@ io_sock_set_rcvtimeo(io_handle_t handle, int timeout)
 	}
 
 #if _WIN32
-	DWORD optval = timeout;
+	DWORD optval = (DWORD)timeout;
 #else
 	struct timeval optval = { .tv_sec = timeout / 1000,
 		.tv_usec = (timeout % 1000) * 1000 };
@@ -964,7 +968,7 @@ io_sock_set_sndtimeo(io_handle_t handle, int timeout)
 	}
 
 #if _WIN32
-	DWORD optval = timeout;
+	DWORD optval = (DWORD)timeout;
 #else
 	struct timeval optval = { .tv_sec = timeout / 1000,
 		.tv_usec = (timeout % 1000) * 1000 };
@@ -1028,7 +1032,7 @@ io_sock_get_nread(io_handle_t handle)
 	u_long optval;
 	if (ioctlsocket((SOCKET)handle->fd, FIONREAD, &optval))
 		return -1;
-	return optval;
+	return (ssize_t)optval;
 #else
 	int optval;
 	int result;
@@ -1158,7 +1162,7 @@ io_sock_get_mcast_ttl(io_handle_t handle)
 		break;
 	default: set_errnum(ERRNUM_AFNOSUPPORT); return -1;
 	}
-	return optval;
+	return (int)optval;
 }
 
 int
@@ -1175,7 +1179,7 @@ io_sock_set_mcast_ttl(io_handle_t handle, int ttl)
 	}
 
 #if _WIN32
-	DWORD optval = ttl;
+	DWORD optval = (DWORD)ttl;
 #else
 	int optval = ttl;
 #endif
@@ -1397,7 +1401,7 @@ sock_flags(struct io_handle *handle, int flags)
 
 #if _WIN32
 	u_long iMode = !!(flags & IO_FLAG_NONBLOCK);
-	return ioctlsocket((SOCKET)handle->fd, FIONBIO, &iMode) ? -1 : 0;
+	return ioctlsocket((SOCKET)handle->fd, (long)FIONBIO, &iMode) ? -1 : 0;
 #else
 	int arg = fcntl(handle->fd, F_GETFL, 0);
 	if (arg == -1)
@@ -1441,7 +1445,7 @@ sock_recv(struct io_handle *handle, void *buf, size_t nbytes, io_addr_t *addr,
 	if (addr) {
 		addr->addrlen = sizeof(addr->addr);
 #if _WIN32
-		result = recvfrom((SOCKET)handle->fd, buf, nbytes, _flags,
+		result = recvfrom((SOCKET)handle->fd, buf, (int)nbytes, _flags,
 				(struct sockaddr *)&addr->addr, &addr->addrlen);
 #else
 		int errsv = errno;
@@ -1454,7 +1458,7 @@ sock_recv(struct io_handle *handle, void *buf, size_t nbytes, io_addr_t *addr,
 #endif
 	} else {
 #if _WIN32
-		result = recv((SOCKET)handle->fd, buf, nbytes, _flags);
+		result = recv((SOCKET)handle->fd, buf, (int)nbytes, _flags);
 #else
 		int errsv = errno;
 		do {
@@ -1483,9 +1487,9 @@ sock_send(struct io_handle *handle, const void *buf, size_t nbytes,
 #if _WIN32
 	// clang-format off
 	result = addr
-			? sendto((SOCKET)handle->fd, buf, nbytes, _flags,
+			? sendto((SOCKET)handle->fd, buf, (int)nbytes, _flags,
 			(const struct sockaddr *)&addr->addr, addr->addrlen)
-			: send((SOCKET)handle->fd, buf, nbytes, _flags);
+			: send((SOCKET)handle->fd, buf, (int)nbytes, _flags);
 	// clang-format on
 #else
 	int errsv = errno;
@@ -1495,7 +1499,7 @@ sock_send(struct io_handle *handle, const void *buf, size_t nbytes,
 		result = addr
 				? sendto(handle->fd, buf, nbytes, _flags,
 				(const struct sockaddr *)&addr->addr,
-				addr->addrlen)
+				(socklen_t)addr->addrlen)
 				: send(handle->fd, buf, nbytes, _flags);
 		// clang-format on
 	} while (result == -1 && errno == EINTR);
@@ -1602,7 +1606,7 @@ sock_connect(struct io_handle *handle, const io_addr_t *addr)
 		errno = errsv;
 		result = connect(handle->fd,
 				(const struct sockaddr *)&addr->addr,
-				addr->addrlen);
+				(socklen_t)addr->addrlen);
 	} while (result == -1 && errno == EINTR);
 	return result;
 #endif

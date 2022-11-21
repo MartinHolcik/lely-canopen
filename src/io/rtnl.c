@@ -4,7 +4,7 @@
  *
  * @see lely/io/rtnl.h
  *
- * @copyright 2017-2019 Lely Industries N.V.
+ * @copyright 2017-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -166,7 +166,7 @@ io_rtnl_getattr_func(struct ifinfomsg *ifi, struct rtattr *rta,
 		return -1;
 	}
 
-	unsigned short payload = RTA_PAYLOAD(rta);
+	unsigned short payload = (unsigned short)RTA_PAYLOAD(rta);
 	if (pargs->data)
 		memcpy(pargs->data, RTA_DATA(rta),
 				MIN(pargs->payload, payload));
@@ -275,8 +275,15 @@ io_rtnl_recv_newlink_func(struct nlmsghdr *nlh, void *data)
 	if (!pargs->func)
 		return 0;
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#endif
 	return pargs->func(NLMSG_DATA(nlh), IFLA_RTA(NLMSG_DATA(nlh)),
 			IFLA_PAYLOAD(nlh), pargs->data);
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 }
 
 static ssize_t
@@ -287,7 +294,7 @@ io_rtnl_send(int fd, struct iovec *iov, int iovlen)
 	struct msghdr msg = { .msg_name = &addr,
 		.msg_namelen = sizeof(addr),
 		.msg_iov = iov,
-		.msg_iovlen = iovlen };
+		.msg_iovlen = (size_t)iovlen };
 
 	ssize_t result;
 	int errsv = errno;

@@ -4,7 +4,7 @@
  *
  * @see lely/io2/vcan.h
  *
- * @copyright 2019-2021 Lely Industries N.V.
+ * @copyright 2019-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -796,7 +796,7 @@ io_vcan_ctrl_insert(io_can_ctrl_t *ctrl, io_can_chan_t *chan)
 	mtx_lock(&vcan_chan->mtx);
 #endif
 	vcan_chan->ctrl = ctrl;
-	vcan_chan->stopped = vcan_ctrl->stopped;
+	vcan_chan->stopped = !!vcan_ctrl->stopped;
 #if !LELY_NO_THREADS
 	mtx_unlock(&vcan_chan->mtx);
 #endif
@@ -894,7 +894,7 @@ io_vcan_ctrl_write(io_can_ctrl_t *ctrl, io_can_chan_t *chan,
 #else
 		if (!timespec_get(&ts, TIME_UTC))
 			return -1;
-		timespec_add_msec(&ts, timeout);
+		timespec_add_msec(&ts, (unsigned int)timeout);
 #endif
 	}
 #endif
@@ -1170,7 +1170,7 @@ io_vcan_chan_read(io_can_chan_t *chan, struct can_msg *msg, struct can_err *err,
 #else
 		if (!timespec_get(&ts, TIME_UTC))
 			return -1;
-		timespec_add_msec(&ts, timeout);
+		timespec_add_msec(&ts, (unsigned int)timeout);
 #endif
 	}
 #endif

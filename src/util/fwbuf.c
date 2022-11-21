@@ -4,7 +4,7 @@
  *
  * @see lely/util/fwbuf.h
  *
- * @copyright 2016-2019 Lely Industries N.V.
+ * @copyright 2016-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -134,7 +134,7 @@ __fwbuf_init(struct __fwbuf *buf, const char *filename)
 
 	buf->filename = _strdup(filename);
 	if (!buf->filename) {
-		dwErrCode = errno2c(errno);
+		dwErrCode = (DWORD)errno2c(errno);
 		goto error_strdup;
 	}
 
@@ -498,11 +498,14 @@ fwbuf_write(fwbuf_t *buf, const void *ptr, size_t size)
 
 #if _WIN32
 	DWORD nNumberOfBytesWritten;
-	if (!WriteFile(buf->hFile, ptr, size, &nNumberOfBytesWritten, NULL)) {
+	// clang-format off
+	if (!WriteFile(buf->hFile, ptr, (DWORD)size, &nNumberOfBytesWritten,
+			NULL)) {
+		// clang-format on
 		buf->dwErrCode = GetLastError();
 		return -1;
 	}
-	return nNumberOfBytesWritten;
+	return (ssize_t)nNumberOfBytesWritten;
 #elif _POSIX_C_SOURCE >= 200112L && !defined(__NEWLIB__)
 	ssize_t result;
 	do
@@ -567,11 +570,11 @@ fwbuf_pwrite(fwbuf_t *buf, const void *ptr, size_t size, intmax_t pos)
 
 	DWORD nNumberOfBytesWritten;
 	OVERLAPPED Overlapped = { 0 };
-	ULARGE_INTEGER uli = { .QuadPart = pos };
+	ULARGE_INTEGER uli = { .QuadPart = (ULONGLONG)pos };
 	Overlapped.Offset = uli.LowPart;
 	Overlapped.OffsetHigh = uli.HighPart;
 	// clang-format off
-	if (!WriteFile(buf->hFile, ptr, size, &nNumberOfBytesWritten,
+	if (!WriteFile(buf->hFile, ptr, (DWORD)size, &nNumberOfBytesWritten,
 			&Overlapped)) {
 		// clang-format on
 		result = -1;
@@ -579,7 +582,7 @@ fwbuf_pwrite(fwbuf_t *buf, const void *ptr, size_t size, intmax_t pos)
 		goto error_WriteFile;
 	}
 
-	result = nNumberOfBytesWritten;
+	result = (ssize_t)nNumberOfBytesWritten;
 
 error_WriteFile:
 	fwbuf_set_pos(buf, oldpos);
@@ -686,19 +689,19 @@ fwbuf_map(fwbuf_t *buf, intmax_t pos, size_t *psize)
 	size -= pos;
 
 	if (psize && *psize)
-		size = MIN((uintmax_t)size, *psize);
+		size = (intmax_t)MIN((uintmax_t)size, *psize);
 
 #if _WIN32
 	SYSTEM_INFO SystemInfo;
 	// cppcheck-suppress uninitvar
 	GetSystemInfo(&SystemInfo);
-	DWORD off = pos % SystemInfo.dwAllocationGranularity;
+	DWORD off = (DWORD)(pos % SystemInfo.dwAllocationGranularity);
 	if ((uintmax_t)size > (uintmax_t)(SIZE_MAX - off)) {
 		buf->dwErrCode = ERROR_INVALID_PARAMETER;
 		goto error_size;
 	}
 
-	ULARGE_INTEGER MaximumSize = { .QuadPart = pos + size };
+	ULARGE_INTEGER MaximumSize = { .QuadPart = (ULONGLONG)(pos + size) };
 	buf->hFileMappingObject = CreateFileMapping(buf->hFile, NULL,
 			PAGE_READWRITE, MaximumSize.HighPart,
 			MaximumSize.LowPart, NULL);
@@ -707,7 +710,7 @@ fwbuf_map(fwbuf_t *buf, intmax_t pos, size_t *psize)
 		goto error_CreateFileMapping;
 	}
 
-	ULARGE_INTEGER FileOffset = { .QuadPart = pos - off };
+	ULARGE_INTEGER FileOffset = { .QuadPart = (ULONGLONG)(pos - off) };
 	buf->lpBaseAddress = MapViewOfFile(buf->hFileMappingObject,
 			FILE_MAP_WRITE, FileOffset.HighPart, FileOffset.LowPart,
 			(SIZE_T)(off + size));
@@ -735,27 +738,27 @@ error_size:
 		return NULL;
 	}
 	intmax_t off = pos % page_size;
-	if ((uintmax_t)size > (uintmax_t)(SIZE_MAX - off)) {
+	if ((uintmax_t)size > (uintmax_t)(SIZE_MAX - (size_t)off)) {
 		errno = buf->errsv = EOVERFLOW;
 		return NULL;
 	}
 
 #ifdef __linux__
-	buf->addr = mmap64(NULL, off + size, PROT_READ | PROT_WRITE, MAP_SHARED,
-			buf->fd, pos - off);
+	buf->addr = mmap64(NULL, (size_t)(off + size), PROT_READ | PROT_WRITE,
+			MAP_SHARED, buf->fd, pos - off);
 #else
 	// TODO: Check if `pos - off` does not overflow the range of off_t.
-	buf->addr = mmap(NULL, off + size, PROT_READ | PROT_WRITE, MAP_SHARED,
-			buf->fd, pos - off);
+	buf->addr = mmap(NULL, (size_t)(off + size), PROT_READ | PROT_WRITE,
+			MAP_SHARED, buf->fd, pos - off);
 #endif
 	if (buf->addr == MAP_FAILED) {
 		buf->errsv = errno;
 		return NULL;
 	}
-	buf->len = off + size;
+	buf->len = (size_t)(off + size);
 
 	if (psize)
-		*psize = size;
+		*psize = (size_t)size;
 
 	return (char *)buf->addr + off;
 #else
@@ -806,7 +809,7 @@ error_size:
 	buf->len = size;
 
 	if (psize)
-		*psize = size;
+		*psize = (size_t)size;
 
 	return buf->map;
 

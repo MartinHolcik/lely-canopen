@@ -4,7 +4,7 @@
  *
  * @see lely/io/can.h
  *
- * @copyright 2017-2020 Lely Industries N.V.
+ * @copyright 2017-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -150,7 +150,7 @@ io_open_can(const char *path)
 	}
 
 	struct sockaddr_can addr = { .can_family = AF_CAN,
-		.can_ifindex = ifindex };
+		.can_ifindex = (int)ifindex };
 
 	if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
 		errsv = errno;
@@ -191,7 +191,7 @@ io_open_can(const char *path)
 	((struct can *)handle)->canfd = canfd;
 #endif
 	((struct can *)handle)->ifindex = ifindex;
-	((struct can *)handle)->ifflags = ifflags;
+	((struct can *)handle)->ifflags = (unsigned)ifflags;
 	((struct can *)handle)->state = CAN_STATE_ACTIVE;
 	((struct can *)handle)->error = 0;
 
@@ -337,8 +337,8 @@ io_can_start(io_handle_t handle)
 		return -1;
 
 	// clang-format off
-	if (io_rtnl_newlink(fd, 0, 0, can->ifindex, can->ifflags | IFF_UP, NULL,
-			0) == -1) {
+	if (io_rtnl_newlink(fd, 0, 0, (int)can->ifindex, can->ifflags | IFF_UP,
+			NULL, 0) == -1) {
 		// clang-format on
 		int errsv = errno;
 		close(fd);
@@ -369,15 +369,15 @@ io_can_stop(io_handle_t handle)
 		return -1;
 
 	// clang-format off
-	if (io_rtnl_newlink(fd, 0, 0, can->ifindex, can->ifflags & ~IFF_UP,
-			NULL, 0) == -1) {
+	if (io_rtnl_newlink(fd, 0, 0, (int)can->ifindex,
+			can->ifflags & (unsigned)~IFF_UP, NULL, 0) == -1) {
 		// clang-format on
 		int errsv = errno;
 		close(fd);
 		errno = errsv;
 		return -1;
 	}
-	can->ifflags &= ~IFF_UP;
+	can->ifflags &= (unsigned)~IFF_UP;
 
 	return close(fd);
 }
@@ -407,8 +407,9 @@ io_can_get_state(io_handle_t handle)
 
 	__u32 attr = 0;
 	// clang-format off
-	if (can_getattr(fd, 0, 0, can->ifindex, &can->ifflags, IFLA_CAN_STATE,
-			&attr, sizeof(attr)) < (int)sizeof(attr)) {
+	if (can_getattr(fd, 0, 0, (int)can->ifindex, &can->ifflags,
+			IFLA_CAN_STATE, &attr,
+			sizeof(attr)) < (int)sizeof(attr)) {
 		// clang-format on
 		close(fd);
 		goto error;
@@ -474,7 +475,7 @@ io_can_get_ec(io_handle_t handle, uint16_t *ptxec, uint16_t *prxec)
 
 	struct can_berr_counter attr = { 0 };
 	// clang-format off
-	if (can_getattr(fd, 0, 0, can->ifindex, &can->ifflags,
+	if (can_getattr(fd, 0, 0, (int)can->ifindex, &can->ifflags,
 			IFLA_CAN_BERR_COUNTER, &attr, sizeof(attr))
 			< (int)sizeof(attr)) {
 		// clang-format on
@@ -514,7 +515,7 @@ io_can_get_bitrate(io_handle_t handle, uint32_t *pbitrate)
 
 	struct can_bittiming attr = { 0 };
 	// clang-format off
-	if (can_getattr(fd, 0, 0, can->ifindex, &can->ifflags,
+	if (can_getattr(fd, 0, 0, (int)can->ifindex, &can->ifflags,
 			IFLA_CAN_BITTIMING, &attr, sizeof(attr))
 			< (int)sizeof(attr)) {
 		// clang-format on
@@ -558,8 +559,9 @@ io_can_set_bitrate(io_handle_t handle, uint32_t bitrate)
 	// Deactivate the network interface, if necessary, before changing the
 	// bitrate.
 	// clang-format off
-	if ((can->ifflags & IFF_UP) && io_rtnl_newlink(fd, 0, 0, can->ifindex,
-			can->ifflags & ~IFF_UP, NULL, 0) == -1) {
+	if ((can->ifflags & IFF_UP) && io_rtnl_newlink(fd, 0, 0,
+			(int)can->ifindex, can->ifflags & (unsigned)~IFF_UP,
+			NULL, 0) == -1) {
 		// clang-format on
 		errsv = errno;
 		goto error_newlink;
@@ -567,7 +569,7 @@ io_can_set_bitrate(io_handle_t handle, uint32_t bitrate)
 
 	struct can_bittiming attr = { .bitrate = bitrate };
 	// clang-format off
-	if (can_setattr(fd, 0, 0, can->ifindex, can->ifflags,
+	if (can_setattr(fd, 0, 0, (int)can->ifindex, can->ifflags,
 			IFLA_CAN_BITTIMING, &attr, sizeof(attr)) == -1) {
 		// clang-format on
 		errsv = errno;
@@ -605,8 +607,8 @@ io_can_get_txqlen(io_handle_t handle, size_t *ptxqlen)
 
 	__u32 attr = 0;
 	// clang-format off
-	if (io_rtnl_getattr(fd, 0, 0, can->ifindex, &can->ifflags, IFLA_TXQLEN,
-			&attr, sizeof(attr)) < (int)sizeof(attr)) {
+	if (io_rtnl_getattr(fd, 0, 0, (int)can->ifindex, &can->ifflags,
+			IFLA_TXQLEN, &attr, sizeof(attr)) < (int)sizeof(attr)) {
 		// clang-format on
 		int errsv = errno;
 		close(fd);
@@ -640,10 +642,10 @@ io_can_set_txqlen(io_handle_t handle, size_t txqlen)
 	if (fd == -1)
 		return -1;
 
-	__u32 attr = txqlen;
+	__u32 attr = (__u32)txqlen;
 	// clang-format off
-	if (io_rtnl_setattr(fd, 0, 0, can->ifindex, can->ifflags, IFLA_TXQLEN,
-			&attr, sizeof(attr)) == -1) {
+	if (io_rtnl_setattr(fd, 0, 0, (int)can->ifindex, can->ifflags,
+			IFLA_TXQLEN, &attr, sizeof(attr)) == -1) {
 		// clang-format on
 		int errsv = errno;
 		close(fd);
@@ -808,21 +810,29 @@ can_getattr(int fd, __u32 seq, __u32 pid, int ifi_index,
 
 	int len = io_rtnl_getattr(fd, seq, pid, ifi_index, pifi_flags,
 			IFLA_LINKINFO, buf, sizeof(buf));
-	if (len == -1)
+	if (len < 0)
 		return -1;
 
-	struct rtattr *rta =
-			io_rta_find((struct rtattr *)buf, len, IFLA_INFO_DATA);
-	if (rta)
+	struct rtattr *rta = io_rta_find((struct rtattr *)buf,
+			(unsigned short)len, IFLA_INFO_DATA);
+	if (rta) {
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#endif
 		rta = io_rta_find(RTA_DATA(rta), RTA_PAYLOAD(rta), type);
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+	}
 	if (!rta) {
 		errno = EOPNOTSUPP;
 		return -1;
 	}
 
-	len = RTA_PAYLOAD(rta);
+	len = (unsigned short)RTA_PAYLOAD(rta);
 	if (data)
-		memcpy(data, RTA_DATA(rta), MIN(payload, len));
+		memcpy(data, RTA_DATA(rta), MIN(payload, (unsigned short)len));
 	return len;
 }
 
@@ -841,7 +851,7 @@ can_setattr(int fd, __u32 seq, __u32 pid, int ifi_index, unsigned int ifi_flags,
 		.rta_type = IFLA_INFO_KIND };
 	memcpy(RTA_DATA(info_kind), kind, strlen(kind));
 
-	len += RTA_ALIGN(info_kind->rta_len);
+	len += (unsigned short)RTA_ALIGN(info_kind->rta_len);
 
 	struct rtattr *info_data = RTA_TAIL(info_kind);
 	*info_data = (struct rtattr){ .rta_len = RTA_LENGTH(0),
@@ -853,13 +863,13 @@ can_setattr(int fd, __u32 seq, __u32 pid, int ifi_index, unsigned int ifi_flags,
 			.rta_type = type };
 		memcpy(RTA_DATA(rta), data, payload);
 
-		info_data->rta_len += RTA_ALIGN(rta->rta_len);
+		info_data->rta_len += (unsigned short)RTA_ALIGN(rta->rta_len);
 	}
 
-	len += RTA_ALIGN(info_data->rta_len);
+	len += (unsigned short)RTA_ALIGN(info_data->rta_len);
 
 	return io_rtnl_setattr(fd, seq, pid, ifi_index, ifi_flags,
-			IFLA_LINKINFO, buf, len);
+			IFLA_LINKINFO, buf, (unsigned short)len);
 }
 
 #endif // HAVE_LINUX_CAN_NETLINK_H && HAVE_LINUX_RTNETLINK_H

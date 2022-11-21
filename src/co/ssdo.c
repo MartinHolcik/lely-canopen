@@ -1323,7 +1323,7 @@ co_ssdo_blk_dn_sub_on_recv(co_ssdo_t *sdo, const struct can_msg *msg)
 	if (cs == CO_SDO_CS_ABORT)
 		return co_ssdo_abort_ind(sdo);
 
-	co_unsigned8_t seqno = cs & ~CO_SDO_SEQ_LAST;
+	co_unsigned8_t seqno = cs & (co_unsigned8_t)~CO_SDO_SEQ_LAST;
 	int last = !!(cs & CO_SDO_SEQ_LAST);
 
 	if (!seqno || seqno > sdo->blksize)
@@ -1408,7 +1408,9 @@ co_ssdo_blk_dn_end_on_recv(co_ssdo_t *sdo, const struct can_msg *msg)
 		return co_ssdo_abort_res(sdo, CO_SDO_AC_TYPE_LEN_LO);
 
 	// Check the number of bytes in the last segment.
-	co_unsigned8_t n = sdo->req.size ? (sdo->req.size - 1) % 7 + 1 : 0;
+	co_unsigned8_t n = 0;
+	if (sdo->req.size)
+		n = (co_unsigned8_t)((sdo->req.size - 1) % 7 + 1);
 	if (CO_SDO_BLK_SIZE_GET(cs) != n)
 		return co_ssdo_abort_res(sdo, CO_SDO_AC_NO_CS);
 
@@ -1553,11 +1555,11 @@ co_ssdo_blk_up_sub_on_recv(co_ssdo_t *sdo, const struct can_msg *msg)
 	default: return co_ssdo_abort_res(sdo, CO_SDO_AC_NO_CS);
 	}
 
-	ptrdiff_t n = sdo->blksize * 7 - membuf_size(&sdo->buf);
+	ptrdiff_t n = sdo->blksize * 7 - (ptrdiff_t)membuf_size(&sdo->buf);
 	if (n > 0) {
-		if (!membuf_reserve(&sdo->buf, n))
+		if (!membuf_reserve(&sdo->buf, (size_t)n))
 			return co_ssdo_abort_res(sdo, CO_SDO_AC_NO_MEM);
-		co_unsigned32_t ac = co_ssdo_up_buf(sdo, n);
+		co_unsigned32_t ac = co_ssdo_up_buf(sdo, (size_t)n);
 		if (ac)
 			return co_ssdo_abort_res(sdo, ac);
 		sdo->blksize = (co_unsigned8_t)(
@@ -1774,8 +1776,8 @@ co_ssdo_send_up_exp_res(co_ssdo_t *sdo)
 	size_t nbyte = membuf_size(&sdo->buf);
 	assert(nbyte == sdo->req.size);
 
-	co_unsigned8_t cs =
-			CO_SDO_SCS_UP_INI_RES | CO_SDO_INI_SIZE_EXP_SET(nbyte);
+	co_unsigned8_t cs = (co_unsigned8_t)(CO_SDO_SCS_UP_INI_RES
+			| CO_SDO_INI_SIZE_EXP_SET(nbyte));
 
 	struct can_msg msg;
 	co_ssdo_init_ini_res(sdo, &msg, cs);
@@ -1793,7 +1795,7 @@ co_ssdo_send_up_ini_res(co_ssdo_t *sdo)
 
 	struct can_msg msg;
 	co_ssdo_init_ini_res(sdo, &msg, cs);
-	stle_u32(msg.data + 4, sdo->req.size);
+	stle_u32(msg.data + 4, (uint_least32_t)sdo->req.size);
 	can_net_send(sdo->net, &msg);
 }
 
@@ -1807,8 +1809,8 @@ co_ssdo_send_up_seg_res(co_ssdo_t *sdo, int last)
 	size_t nbyte = membuf_size(&sdo->buf);
 	assert(nbyte <= 7);
 
-	co_unsigned8_t cs = CO_SDO_SCS_UP_SEG_RES | sdo->toggle
-			| CO_SDO_SEG_SIZE_SET(nbyte);
+	co_unsigned8_t cs = (co_unsigned8_t)(CO_SDO_SCS_UP_SEG_RES | sdo->toggle
+			| CO_SDO_SEG_SIZE_SET(nbyte));
 	sdo->toggle ^= CO_SDO_SEG_TOGGLE;
 	if (last)
 		cs |= CO_SDO_SEG_LAST;
@@ -1871,7 +1873,7 @@ co_ssdo_send_blk_up_ini_res(co_ssdo_t *sdo)
 
 	struct can_msg msg;
 	co_ssdo_init_ini_res(sdo, &msg, cs);
-	stle_u32(msg.data + 4, sdo->req.size);
+	stle_u32(msg.data + 4, (uint_least32_t)sdo->req.size);
 	can_net_send(sdo->net, &msg);
 }
 
@@ -1902,10 +1904,12 @@ co_ssdo_send_blk_up_end_res(co_ssdo_t *sdo)
 	assert(sdo);
 
 	// Compute the number of bytes in the last segment containing data.
-	co_unsigned8_t n = sdo->req.size ? (sdo->req.size - 1) % 7 + 1 : 0;
+	co_unsigned8_t n = 0;
+	if (sdo->req.size)
+		n = (co_unsigned8_t)((sdo->req.size - 1) % 7 + 1);
 
-	co_unsigned8_t cs = CO_SDO_SCS_BLK_UP_RES | CO_SDO_SC_END_BLK
-			| CO_SDO_BLK_SIZE_SET(n);
+	co_unsigned8_t cs = (co_unsigned8_t)(CO_SDO_SCS_BLK_UP_RES
+			| CO_SDO_SC_END_BLK | CO_SDO_BLK_SIZE_SET(n));
 
 	struct can_msg msg;
 	co_ssdo_init_seg_res(sdo, &msg, cs);

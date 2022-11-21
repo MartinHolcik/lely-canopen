@@ -61,7 +61,8 @@ io_addr_cmp(const void *p1, const void *p2)
 	const io_addr_t *a1 = p1;
 	const io_addr_t *a2 = p2;
 
-	int cmp = memcmp(&a1->addr, &a2->addr, MIN(a1->addrlen, a2->addrlen));
+	int cmp = memcmp(&a1->addr, &a2->addr,
+			(size_t)MIN(a1->addrlen, a2->addrlen));
 	if (!cmp)
 		cmp = (a2->addrlen < a1->addrlen) - (a1->addrlen < a2->addrlen);
 	return cmp;
@@ -91,7 +92,7 @@ io_addr_get_rfcomm_a(const io_addr_t *addr, char *ba, int *port)
 	}
 
 	if (port)
-		*port = addr_bth->port == BT_PORT_ANY ? 0 : addr_bth->port;
+		*port = addr_bth->port == BT_PORT_ANY ? 0 : (int)addr_bth->port;
 	if (ba && ba2str(&addr_bth->btAddr, ba) < 0)
 		return -1;
 #else
@@ -138,7 +139,7 @@ io_addr_set_rfcomm_a(io_addr_t *addr, const char *ba, int port)
 	struct sockaddr_rc *addr_rc = (struct sockaddr_rc *)&addr->addr;
 
 	addr_rc->rc_family = AF_BLUETOOTH;
-	addr_rc->rc_channel = htobs(port);
+	addr_rc->rc_channel = (uint8_t)htobs(port);
 	if (ba && *ba) {
 		if (str2ba(ba, &addr_rc->rc_bdaddr) < 0)
 			return -1;
@@ -168,7 +169,7 @@ io_addr_get_rfcomm_n(const io_addr_t *addr, uint8_t ba[6], int *port)
 	}
 
 	if (port)
-		*port = addr_bth->port == BT_PORT_ANY ? 0 : addr_bth->port;
+		*port = addr_bth->port == BT_PORT_ANY ? 0 : (int)addr_bth->port;
 	if (ba) {
 		for (int i = 0; i < 6; i++)
 			ba[i] = (addr_bth->btAddr >> (7 - i) * 8) & 0xff;
@@ -217,7 +218,7 @@ io_addr_set_rfcomm_n(io_addr_t *addr, const uint8_t ba[6], int port)
 	struct sockaddr_rc *addr_rc = (struct sockaddr_rc *)&addr->addr;
 
 	addr_rc->rc_family = AF_BLUETOOTH;
-	addr_rc->rc_channel = htobs(port);
+	addr_rc->rc_channel = (uint8_t)htobs(port);
 	if (ba && *ba)
 		memcpy(&addr_rc->rc_bdaddr, ba, 6);
 	else
@@ -243,7 +244,7 @@ io_addr_set_rfcomm_local(io_addr_t *addr, int port)
 	struct sockaddr_rc *addr_rc = (struct sockaddr_rc *)&addr->addr;
 
 	addr_rc->rc_family = AF_BLUETOOTH;
-	addr_rc->rc_channel = htobs(port);
+	addr_rc->rc_channel = (uint8_t)htobs(port);
 	bacpy(&addr_rc->rc_bdaddr, BDADDR_LOCAL);
 #endif
 }
@@ -292,7 +293,7 @@ io_addr_set_ipv4_a(io_addr_t *addr, const char *ip, int port)
 	struct sockaddr_in *addr_in = (struct sockaddr_in *)&addr->addr;
 
 	addr_in->sin_family = AF_INET;
-	addr_in->sin_port = htons(port);
+	addr_in->sin_port = htons((unsigned short)port);
 	if (ip && *ip) {
 		if (inet_pton(AF_INET, ip, &addr_in->sin_addr) != 1)
 			return -1;
@@ -338,7 +339,7 @@ io_addr_set_ipv4_n(io_addr_t *addr, const uint8_t ip[4], int port)
 	struct sockaddr_in *addr_in = (struct sockaddr_in *)&addr->addr;
 
 	addr_in->sin_family = AF_INET;
-	addr_in->sin_port = htons(port);
+	addr_in->sin_port = htons((unsigned short)port);
 	if (ip)
 		memcpy(&addr_in->sin_addr.s_addr, ip, 4);
 	else
@@ -355,7 +356,7 @@ io_addr_set_ipv4_loopback(io_addr_t *addr, int port)
 	struct sockaddr_in *addr_in = (struct sockaddr_in *)&addr->addr;
 
 	addr_in->sin_family = AF_INET;
-	addr_in->sin_port = htons(port);
+	addr_in->sin_port = htons((unsigned short)port);
 	addr_in->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 }
 
@@ -369,7 +370,7 @@ io_addr_set_ipv4_broadcast(io_addr_t *addr, int port)
 	struct sockaddr_in *addr_in = (struct sockaddr_in *)&addr->addr;
 
 	addr_in->sin_family = AF_INET;
-	addr_in->sin_port = htons(port);
+	addr_in->sin_port = htons((unsigned short)port);
 	addr_in->sin_addr.s_addr = htonl(INADDR_BROADCAST);
 }
 
@@ -411,7 +412,7 @@ io_addr_set_ipv6_a(io_addr_t *addr, const char *ip, int port)
 	struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)&addr->addr;
 
 	addr_in6->sin6_family = AF_INET6;
-	addr_in6->sin6_port = htons(port);
+	addr_in6->sin6_port = htons((unsigned short)port);
 	if (ip && *ip) {
 		if (inet_pton(AF_INET6, ip, &addr_in6->sin6_addr) != 1)
 			return -1;
@@ -457,7 +458,7 @@ io_addr_set_ipv6_n(io_addr_t *addr, const uint8_t ip[16], int port)
 	struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)&addr->addr;
 
 	addr_in6->sin6_family = AF_INET6;
-	addr_in6->sin6_port = htons(port);
+	addr_in6->sin6_port = htons((unsigned short)port);
 	if (ip)
 		memcpy(&addr_in6->sin6_addr.s6_addr, ip, 16);
 	else
@@ -474,7 +475,7 @@ io_addr_set_ipv6_loopback(io_addr_t *addr, int port)
 	struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)&addr->addr;
 
 	addr_in6->sin6_family = AF_INET6;
-	addr_in6->sin6_port = htons(port);
+	addr_in6->sin6_port = htons((unsigned short)port);
 	addr_in6->sin6_addr = in6addr_loopback;
 }
 
@@ -569,7 +570,7 @@ io_addr_get_port(const io_addr_t *addr, int *port)
 		if (port)
 			// clang-format off
 			*port = addr_bth->port == BT_PORT_ANY
-					? 0 : addr_bth->port;
+					? 0 : (int)addr_bth->port;
 		// clang-format on
 		return 0;
 	}
@@ -641,7 +642,8 @@ io_addr_set_port(io_addr_t *addr, int port)
 			errno = EINVAL;
 			return -1;
 		}
-		((struct sockaddr_rc *)&addr->addr)->rc_channel = htobs(port);
+		((struct sockaddr_rc *)&addr->addr)->rc_channel =
+				(uint8_t)htobs(port);
 		return 0;
 #endif
 	case AF_INET:
@@ -649,14 +651,16 @@ io_addr_set_port(io_addr_t *addr, int port)
 			set_errnum(ERRNUM_INVAL);
 			return -1;
 		}
-		((struct sockaddr_in *)&addr->addr)->sin_port = htons(port);
+		((struct sockaddr_in *)&addr->addr)->sin_port =
+				htons((unsigned short)port);
 		return 0;
 	case AF_INET6:
 		if (addr->addrlen < (int)sizeof(struct sockaddr_in6)) {
 			set_errnum(ERRNUM_INVAL);
 			return -1;
 		}
-		((struct sockaddr_in6 *)&addr->addr)->sin6_port = htons(port);
+		((struct sockaddr_in6 *)&addr->addr)->sin6_port =
+				htons((unsigned short)port);
 		return 0;
 	default: set_errnum(ERRNUM_AFNOSUPPORT); return -1;
 	}
@@ -804,7 +808,7 @@ io_get_addrinfo(int maxinfo, struct io_addrinfo *info, const char *nodename,
 			memset(info, 0, sizeof(*info));
 			info->domain = domain;
 			info->type = type;
-			info->addr.addrlen = ai->ai_addrlen;
+			info->addr.addrlen = (int)ai->ai_addrlen;
 			memcpy(&info->addr.addr, ai->ai_addr, ai->ai_addrlen);
 			info++;
 		}

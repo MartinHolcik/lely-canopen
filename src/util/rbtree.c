@@ -4,7 +4,7 @@
  *
  * @see lely/util/rbtree.h
  *
- * @copyright 2014-2020 Lely Industries N.V.
+ * @copyright 2014-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -361,7 +361,7 @@ rbnode_set_parent(struct rbnode *node, const struct rbnode *parent)
 	if (!node)
 		return;
 
-	node->parent = (uintptr_t)parent | rbnode_get_color(node);
+	node->parent = (uintptr_t)parent | (uintptr_t)rbnode_get_color(node);
 }
 
 static inline int

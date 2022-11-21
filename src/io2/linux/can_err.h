@@ -55,8 +55,8 @@ can_frame2can_err(const struct can_frame *frame, struct can_err *err)
 		return -1;
 	}
 
-	enum can_state state = err ? err->state : CAN_STATE_ACTIVE;
-	enum can_error error = err ? err->error : 0;
+	int state = err ? err->state : CAN_STATE_ACTIVE;
+	int error = err ? err->error : 0;
 
 	if (frame->can_id & CAN_ERR_RESTARTED)
 		state = CAN_STATE_ACTIVE;

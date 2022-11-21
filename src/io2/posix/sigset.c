@@ -4,7 +4,7 @@
  *
  * @see lely/io2/sys/sigset.h
  *
- * @copyright 2018-2021 Lely Industries N.V.
+ * @copyright 2018-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -62,7 +62,7 @@ struct io_sigset_node {
 
 #define IO_SIGSET_NODE_INIT(signo) \
 	{ \
-		NULL, (signo), 0, 0 \
+		NULL, (signo & 0x3ffffffful), 0, 0 \
 	}
 
 static struct {
@@ -237,8 +237,8 @@ io_sigset_init(io_sigset_t *sigset, io_poll_t *poll, ev_exec_t *exec)
 	sllist_init(&impl->queue);
 
 	for (int i = 1; i < LELY_NSIG; i++)
-		impl->nodes[i - 1] =
-				(struct io_sigset_node)IO_SIGSET_NODE_INIT(i);
+		impl->nodes[i - 1] = (struct io_sigset_node)IO_SIGSET_NODE_INIT(
+				(unsigned int)i);
 
 	if (io_sigset_impl_open(impl) == -1) {
 		errsv = errno;

@@ -4,7 +4,7 @@
  *
  * @see lely/io/attr.h
  *
- * @copyright 2016-2020 Lely Industries N.V.
+ * @copyright 2016-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -39,7 +39,7 @@ io_attr_get_speed(const io_attr_t *attr)
 	assert(attr);
 
 #if _WIN32
-	return io_attr_lpDCB(attr)->BaudRate;
+	return (int)io_attr_lpDCB(attr)->BaudRate;
 #else
 	switch (cfgetospeed((const struct termios *)attr)) {
 	case B0: return 0;
@@ -114,7 +114,7 @@ io_attr_set_speed(io_attr_t *attr, int speed)
 	assert(attr);
 
 #if _WIN32
-	io_attr_lpDCB(attr)->BaudRate = speed;
+	io_attr_lpDCB(attr)->BaudRate = (DWORD)speed;
 
 	return 0;
 #else
@@ -231,7 +231,7 @@ io_attr_set_flow_control(io_attr_t *attr, int flow_control)
 	if (flow_control)
 		ios->c_iflag |= IXOFF | IXON;
 	else
-		ios->c_iflag &= ~(IXOFF | IXON);
+		ios->c_iflag &= (tcflag_t)(~(IXOFF | IXON));
 
 	return 0;
 #endif
@@ -283,16 +283,16 @@ io_attr_set_parity(io_attr_t *attr, int parity)
 	switch (parity) {
 	case IO_PARITY_NONE:
 		ios->c_iflag |= IGNPAR;
-		ios->c_cflag &= ~(PARENB | PARODD);
+		ios->c_cflag &= (tcflag_t)(~(PARENB | PARODD));
 		return 0;
 	case IO_PARITY_ODD:
-		ios->c_iflag &= ~(IGNPAR | PARMRK);
+		ios->c_iflag &= (tcflag_t)(~(IGNPAR | PARMRK));
 		ios->c_iflag |= INPCK;
 		ios->c_cflag |= PARENB;
-		ios->c_cflag &= ~PARODD;
+		ios->c_cflag &= (tcflag_t)~PARODD;
 		return 0;
 	case IO_PARITY_EVEN:
-		ios->c_iflag &= ~(IGNPAR | PARMRK);
+		ios->c_iflag &= (tcflag_t)(~(IGNPAR | PARMRK));
 		ios->c_iflag |= INPCK;
 		ios->c_cflag |= (PARENB | PARODD);
 		return 0;
@@ -331,7 +331,7 @@ io_attr_set_stop_bits(io_attr_t *attr, int stop_bits)
 	if (stop_bits)
 		ios->c_cflag |= CSTOPB;
 	else
-		ios->c_cflag &= ~CSTOPB;
+		ios->c_cflag &= (tcflag_t)~CSTOPB;
 
 	return 0;
 #endif
@@ -361,12 +361,12 @@ io_attr_set_char_size(io_attr_t *attr, int char_size)
 	assert(attr);
 
 #if _WIN32
-	io_attr_lpDCB(attr)->ByteSize = char_size;
+	io_attr_lpDCB(attr)->ByteSize = (BYTE)char_size;
 
 	return 0;
 #else
 	struct termios *ios = (struct termios *)attr;
-	ios->c_cflag &= ~CSIZE;
+	ios->c_cflag &= (tcflag_t)~CSIZE;
 	switch (char_size) {
 	case 5: ios->c_cflag |= CS5; return 0;
 	case 6: ios->c_cflag |= CS6; return 0;

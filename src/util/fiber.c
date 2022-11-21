@@ -543,7 +543,7 @@ guard_mmap(void *addr, size_t len, int prot)
 
 	// Create a single anonymous private mapping that includes the guard
 	// pages.
-	addr = mmap(addr, len + 2 * page_size, prot,
+	addr = mmap(addr, len + 2 * (size_t)page_size, prot,
 			MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (addr == MAP_FAILED) {
 		errc = get_errc();
@@ -552,12 +552,13 @@ guard_mmap(void *addr, size_t len, int prot)
 	addr = (char *)addr + page_size;
 
 	// Guard the page at the beginning.
-	if (mprotect((char *)addr - page_size, page_size, PROT_NONE) == -1) {
+	if (mprotect((char *)addr - page_size, (size_t)page_size, PROT_NONE)
+			== -1) {
 		errc = get_errc();
 		goto error_mprotect;
 	}
 	// Guard the page at the end.
-	if (mprotect((char *)addr + len, page_size, PROT_NONE) == -1) {
+	if (mprotect((char *)addr + len, (size_t)page_size, PROT_NONE) == -1) {
 		errc = get_errc();
 		goto error_mprotect;
 	}
@@ -565,7 +566,7 @@ guard_mmap(void *addr, size_t len, int prot)
 	return addr;
 
 error_mprotect:
-	munmap((char *)addr - page_size, len + 2 * page_size);
+	munmap((char *)addr - page_size, len + 2 * (size_t)page_size);
 error_mmap:
 	set_errc(errc);
 	return NULL;
@@ -580,7 +581,8 @@ guard_munmap(void *addr, size_t len)
 
 		len = ALIGN(len, page_size);
 
-		munmap((char *)addr - page_size, len + 2 * page_size);
+		munmap((char *)addr - (size_t)page_size,
+				len + 2 * (size_t)page_size);
 	}
 }
 

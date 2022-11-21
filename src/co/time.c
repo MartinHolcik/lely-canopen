@@ -128,7 +128,7 @@ co_time_diff_get(const co_time_diff_t *td, struct timespec *tp)
 	assert(td);
 	assert(tp);
 
-	tp->tv_sec = (time_t)td->days * 24 * 60 * 60 + td->ms / 1000;
+	tp->tv_sec = (time_t)td->days * 24 * 60 * 60 + (time_t)td->ms / 1000;
 	tp->tv_nsec = (long)(td->ms % 1000) * 1000000;
 }
 
@@ -139,7 +139,8 @@ co_time_diff_set(co_time_diff_t *td, const struct timespec *tp)
 	assert(tp);
 
 	// Compute the number of milliseconds since midnight.
-	td->ms = (tp->tv_sec % (24 * 60 * 60)) * 1000 + tp->tv_nsec / 1000000;
+	td->ms = (co_unsigned32_t)((tp->tv_sec % (24 * 60 * 60)) * 1000
+			+ tp->tv_nsec / 1000000);
 	// Compute the number of days.
 	td->days = (co_unsigned16_t)(tp->tv_sec / (24 * 60 * 60));
 }

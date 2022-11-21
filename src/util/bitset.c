@@ -4,7 +4,7 @@
  *
  * @see lely/util/bitset.h
  *
- * @copyright 2017-2019 Lely Industries N.V.
+ * @copyright 2017-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -33,7 +33,7 @@
 #include <stdlib.h>
 
 #undef INT_BIT
-#define INT_BIT (sizeof(int) * CHAR_BIT)
+#define INT_BIT ((int)sizeof(int) * CHAR_BIT)
 
 int
 bitset_init(struct bitset *set, int size)
@@ -42,7 +42,7 @@ bitset_init(struct bitset *set, int size)
 
 	size = MAX(0, (size + INT_BIT - 1) / INT_BIT);
 
-	unsigned int *bits = malloc(size * sizeof(unsigned int));
+	unsigned int *bits = malloc((size_t)size * sizeof(unsigned int));
 	if (!bits && size) {
 #if !LELY_NO_ERRNO
 		set_errc(errno2c(errno));
@@ -80,7 +80,8 @@ bitset_resize(struct bitset *set, int size)
 
 	size = MAX(0, (size + INT_BIT - 1) / INT_BIT);
 
-	unsigned int *bits = realloc(set->bits, size * sizeof(unsigned int));
+	unsigned int *bits =
+			realloc(set->bits, (size_t)size * sizeof(unsigned int));
 	if (!bits && size) {
 #if !LELY_NO_ERRNO
 		set_errc(errno2c(errno));
@@ -157,7 +158,7 @@ bitset_ffs(const struct bitset *set)
 	for (int i = 0; i < set->size; i++) {
 		unsigned int x = *bits++;
 		if (x)
-			return offset + ffs(x);
+			return offset + ffs((int)x);
 		offset += INT_BIT;
 	}
 	return 0;
@@ -171,7 +172,7 @@ bitset_ffz(const struct bitset *set)
 	for (int i = 0; i < set->size; i++) {
 		unsigned int x = *bits++;
 		if (~x)
-			return offset + ffs(~x);
+			return offset + ffs((int)~x);
 		offset += INT_BIT;
 	}
 	return 0;
@@ -197,7 +198,7 @@ bitset_fns(const struct bitset *set, int n)
 			n = 0;
 		}
 		if (x)
-			return offset + ffs(x);
+			return offset + ffs((int)x);
 		size--;
 		offset += INT_BIT;
 	}
@@ -224,7 +225,7 @@ bitset_fnz(const struct bitset *set, int n)
 			n = 0;
 		}
 		if (~x)
-			return offset + ffs(~x);
+			return offset + ffs((int)~x);
 		size--;
 		offset += INT_BIT;
 	}

@@ -150,7 +150,7 @@ ServiceMain(DWORD dwArgc, LPSTR *lpszArgv)
 		for (DWORD i = 0; i < dwArgc; i++)
 			argv[i] = lpszArgv[i];
 		argv[dwArgc] = NULL;
-		if (daemon_init(dwArgc, argv)) {
+		if (daemon_init((int)dwArgc, argv)) {
 			free(argv);
 			goto error_init;
 		}
@@ -200,7 +200,7 @@ Handler(DWORD fdwControl)
 	case SERVICE_CONTROL_PARAMCHANGE: sig = DAEMON_RELOAD; break;
 	default:
 		if (fdwControl >= 128 && fdwControl <= 255)
-			sig = DAEMON_USER_MIN + (fdwControl - 128);
+			sig = DAEMON_USER_MIN + (int)(fdwControl - 128);
 		break;
 	};
 
@@ -408,7 +408,8 @@ daemon_signal(int sig)
 
 	int result;
 	do
-		result = write(daemon_pipe[1], &(unsigned char){ sig }, 1);
+		result = (int)write(daemon_pipe[1],
+				&(unsigned char){ (unsigned char)sig }, 1);
 	while (result == -1 && errno == EINTR);
 	return result;
 }
@@ -555,7 +556,7 @@ daemon_thrd_start(void *arg)
 		// Read a single signal value.
 		unsigned char uc = 0;
 		do
-			result = read(daemon_pipe[0], &uc, 1);
+			result = (int)read(daemon_pipe[0], &uc, 1);
 		while (result == -1 && errno == EINTR);
 		if (result < 1)
 			continue;

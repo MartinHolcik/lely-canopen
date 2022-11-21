@@ -4,7 +4,7 @@
  *
  * @see lely/util/config.h
  *
- * @copyright 2017-2020 Lely Industries N.V.
+ * @copyright 2017-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -175,7 +175,7 @@ config_parse_ini_text(config_t *config, const char *begin, const char *end,
 	membuf_fini(&key);
 	membuf_fini(&section);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 size_t
@@ -258,7 +258,7 @@ skip(const char *begin, const char *end, struct floc *at)
 	cp += lex_line_comment("#", cp, end, at);
 	cp += lex_line_comment(";", cp, end, at);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static void

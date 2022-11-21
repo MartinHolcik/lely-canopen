@@ -2,7 +2,7 @@
  * This header file is part of the utilities library; it contains the memory
  * buffer declarations.
  *
- * @copyright 2016-2020 Lely Industries N.V.
+ * @copyright 2016-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -26,6 +26,9 @@
 
 #include <assert.h>
 #include <stddef.h>
+#ifndef NDEBUG
+#include <stdint.h>
+#endif
 #include <string.h>
 
 #ifndef LELY_UTIL_MEMBUF_INLINE
@@ -177,16 +180,18 @@ LELY_UTIL_MEMBUF_INLINE size_t
 membuf_size(const struct membuf *buf)
 {
 	assert(buf);
+	assert(buf->cur >= buf->begin);
 
-	return buf->cur - buf->begin;
+	return (size_t)(buf->cur - buf->begin);
 }
 
 LELY_UTIL_MEMBUF_INLINE size_t
 membuf_capacity(const struct membuf *buf)
 {
 	assert(buf);
+	assert(buf->end >= buf->cur);
 
-	return buf->end - buf->cur;
+	return (size_t)(buf->end - buf->cur);
 }
 
 LELY_UTIL_MEMBUF_INLINE ptrdiff_t
@@ -212,9 +217,10 @@ membuf_alloc(struct membuf *buf, size_t *size)
 {
 	assert(buf);
 	assert(size);
+	assert(*size < PTRDIFF_MAX);
 
 	void *cur = buf->cur;
-	*size = membuf_seek(buf, *size);
+	*size = (size_t)membuf_seek(buf, (ptrdiff_t)*size);
 	return cur;
 }
 

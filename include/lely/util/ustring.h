@@ -2,7 +2,7 @@
  * This header file is part of the utilities library; it contains (16-bit)
  * Unicode string functions.
  *
- * @copyright 2020 Lely Industries N.V.
+ * @copyright 2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -81,7 +81,7 @@ str16len(const char16_t *s)
 	while (*cp != 0)
 		cp++;
 
-	return cp - s;
+	return (size_t)(cp - s);
 }
 
 LELY_UTIL_USTRING_INLINE char16_t *

@@ -2,7 +2,7 @@
  * This is the internal header file of the ioctl network device configuration
  * functions.
  *
- * @copyright 2018-2020 Lely Industries N.V.
+ * @copyright 2018-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -113,8 +113,8 @@ ifr_set_flags(const char *name, int *flags, int mask)
 	int result = ioctl(ifh.fd, SIOCGIFFLAGS, &ifh.ifr);
 	if (!result) {
 		if ((ifh.ifr.ifr_flags ^ *flags) & mask) {
-			ifh.ifr.ifr_flags &= ~mask;
-			ifh.ifr.ifr_flags |= *flags & mask;
+			ifh.ifr.ifr_flags &= (short)~mask;
+			ifh.ifr.ifr_flags |= (short)(*flags & mask);
 			result = ioctl(ifh.fd, SIOCSIFFLAGS, &ifh.ifr);
 		}
 		if (!result)

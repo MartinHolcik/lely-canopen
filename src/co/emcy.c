@@ -653,7 +653,8 @@ co_emcy_set_1003(co_emcy_t *emcy)
 		return 0;
 
 	// Copy the emergency error codes.
-	val_1003->n = MIN((co_unsigned8_t)emcy->nmsg, nsubidx - 1);
+	val_1003->n = MIN((co_unsigned8_t)emcy->nmsg,
+			(co_unsigned8_t)(nsubidx - 1));
 	for (int i = 0; i < val_1003->n; i++)
 		val_1003->ef[i] = emcy->msgs[i].eec;
 	for (int i = val_1003->n; i < nsubidx - 1; i++)

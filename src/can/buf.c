@@ -4,7 +4,7 @@
  *
  * @see lely/can/buf.h
  *
- * @copyright 2016-2020 Lely Industries N.V.
+ * @copyright 2016-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -88,7 +88,8 @@ can_buf_reserve(struct can_buf *buf, size_t n)
 		begin += size - buf->size;
 		struct can_msg *dstptr = buf->ptr + begin;
 		memmove(dstptr, srcptr,
-				(endptr - srcptr) * sizeof(struct can_msg));
+				(size_t)(endptr - srcptr)
+						* sizeof(struct can_msg));
 		buf->begin = begin;
 		buf->end = end;
 	}

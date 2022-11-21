@@ -4,7 +4,7 @@
  *
  * @see lely/io2/sys/timer.h
  *
- * @copyright 2018-2019 Lely Industries N.V.
+ * @copyright 2018-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -367,8 +367,9 @@ io_timer_impl_settime(io_timer_t *timer, int flags,
 		if (period.tv_sec < 0)
 			period = (struct timespec){ 0, 0 };
 		Period = (ULONGLONG)period.tv_sec * 1000
-				+ (period.tv_nsec + 999999l) / 1000000l;
-		period.tv_nsec = (Period % 1000) * 1000000l;
+				+ ((ULONGLONG)period.tv_nsec + 999999l)
+						/ 1000000l;
+		period.tv_nsec = (long)(Period % 1000) * 1000000l;
 		if (Period > ULONG_MAX) {
 			SetLastError(ERROR_INVALID_PARAMETER);
 			return -1;
@@ -383,7 +384,8 @@ io_timer_impl_settime(io_timer_t *timer, int flags,
 		if (expiry.tv_sec < 0)
 			expiry = (struct timespec){ 0, 0 };
 		DueTime = (ULONGLONG)expiry.tv_sec * 1000
-				+ (expiry.tv_nsec + 999999l) / 1000000l;
+				+ ((ULONGLONG)expiry.tv_nsec + 999999l)
+						/ 1000000l;
 		if (DueTime > ULONG_MAX) {
 			SetLastError(ERROR_INVALID_PARAMETER);
 			return -1;
@@ -423,7 +425,8 @@ io_timer_impl_settime(io_timer_t *timer, int flags,
 
 	// clang-format off
 	if (arm && !CreateTimerQueueTimer(&impl->Timer, NULL,
-			&io_timer_impl_func, impl, DueTime, Period, Flags)) {
+			&io_timer_impl_func, impl, (DWORD)DueTime,
+			(DWORD)Period, Flags)) {
 		// clang-format on
 		result = -1;
 		dwErrCode = GetLastError();
@@ -518,12 +521,15 @@ io_timer_impl_func(PVOID lpParameter, BOOLEAN TimerOrWaitFired)
 		struct timespec *expiry = &impl->value.it_value;
 		if (period->tv_sec || period->tv_nsec) {
 			assert(!(period->tv_nsec % 1000000l));
-			ULONG Period = period->tv_sec * 1000
+			LONGLONG Period = period->tv_sec * 1000
 					+ period->tv_nsec / 1000000l;
 			LONGLONG overrun = timespec_diff_msec(&now, expiry)
 					/ Period;
-			timespec_add_msec(expiry, (overrun + 1) * Period);
-			impl->overrun = MIN(MAX(overrun, INT_MIN), INT_MAX);
+			timespec_add_msec(expiry,
+					(uint_least64_t)(Period
+							* (overrun + 1)));
+			impl->overrun = (int)MIN(
+					MAX(overrun, INT_MIN), INT_MAX);
 		} else {
 			*expiry = (struct timespec){ 0, 0 };
 			impl->overrun = 0;

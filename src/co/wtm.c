@@ -4,7 +4,7 @@
  *
  * @see lely/co/wtm.h
  *
- * @copyright 2016-2019 Lely Industries N.V.
+ * @copyright 2016-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -866,8 +866,8 @@ co_wtm_send(co_wtm_t *wtm, uint_least8_t nif, const struct can_msg *msg)
 	}
 
 	// Compute the length of the CAN frame.
-	size_t len = 1 + (nif != 1) + ((msg->flags & CAN_FLAG_IDE) ? 4 : 2)
-			+ msg->len + 2;
+	size_t len = (size_t)(1 + (nif != 1)
+			+ ((msg->flags & CAN_FLAG_IDE) ? 4 : 2) + msg->len + 2);
 	// Flush the buffer if necessary.
 	if ((wtm->send_nbytes > 3 && wtm->send_buf[3] != 0x00)
 			|| wtm->send_nbytes + len + 2 > CO_WTM_MAX_LEN) {
@@ -1085,7 +1085,8 @@ co_wtm_send_diag_can_res(co_wtm_t *wtm, uint_least8_t nif)
 		return -1;
 	wtm->send_buf[3] = 0x13;
 	wtm->send_buf[4] = nif;
-	wtm->send_buf[5] = ((can->st & 0xf) << 4) | (can->err & 0xf);
+	wtm->send_buf[5] = (uint_least8_t)(((can->st & 0xf) << 4)
+			| (can->err & 0xf));
 	wtm->send_buf[6] = can->load;
 	stle_u16(wtm->send_buf + 7, can->ec);
 	stle_u16(wtm->send_buf + 9, can->foc);

@@ -2,7 +2,7 @@
  * This header file is part of the utilities library; it contains the byte order
  * (endianness) function definitions.
  *
- * @copyright 2013-2020 Lely Industries N.V.
+ * @copyright 2013-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -454,13 +454,13 @@ letoh64(uint_least64_t x)
 LELY_UTIL_ENDIAN_INLINE void
 stbe_i16(uint_least8_t dst[2], int_least16_t x)
 {
-	stbe_u16(dst, x);
+	stbe_u16(dst, (uint_least16_t)x);
 }
 
 LELY_UTIL_ENDIAN_INLINE int_least16_t
 ldbe_i16(const uint_least8_t src[2])
 {
-	return ldbe_u16(src);
+	return (int_least16_t)ldbe_u16(src);
 }
 
 LELY_UTIL_ENDIAN_INLINE void
@@ -491,13 +491,13 @@ ldbe_u16(const uint_least8_t src[2])
 LELY_UTIL_ENDIAN_INLINE void
 stle_i16(uint_least8_t dst[2], int_least16_t x)
 {
-	stle_u16(dst, x);
+	stle_u16(dst, (uint_least16_t)x);
 }
 
 LELY_UTIL_ENDIAN_INLINE int_least16_t
 ldle_i16(const uint_least8_t src[2])
 {
-	return ldle_u16(src);
+	return (int_least16_t)ldle_u16(src);
 }
 
 LELY_UTIL_ENDIAN_INLINE void
@@ -528,13 +528,13 @@ ldle_u16(const uint_least8_t src[2])
 LELY_UTIL_ENDIAN_INLINE void
 stbe_i32(uint_least8_t dst[4], int_least32_t x)
 {
-	stbe_u32(dst, x);
+	stbe_u32(dst, (uint_least32_t)x);
 }
 
 LELY_UTIL_ENDIAN_INLINE int_least32_t
 ldbe_i32(const uint_least8_t src[4])
 {
-	return ldbe_u32(src);
+	return (int_least32_t)ldbe_u32(src);
 }
 
 LELY_UTIL_ENDIAN_INLINE void
@@ -569,13 +569,13 @@ ldbe_u32(const uint_least8_t src[4])
 LELY_UTIL_ENDIAN_INLINE void
 stle_i32(uint_least8_t dst[4], int_least32_t x)
 {
-	stle_u32(dst, x);
+	stle_u32(dst, (uint_least32_t)x);
 }
 
 LELY_UTIL_ENDIAN_INLINE int_least32_t
 ldle_i32(const uint_least8_t src[4])
 {
-	return ldle_u32(src);
+	return (int_least32_t)ldle_u32(src);
 }
 
 LELY_UTIL_ENDIAN_INLINE void
@@ -610,13 +610,13 @@ ldle_u32(const uint_least8_t src[4])
 LELY_UTIL_ENDIAN_INLINE void
 stbe_i64(uint_least8_t dst[8], int_least64_t x)
 {
-	stbe_u64(dst, x);
+	stbe_u64(dst, (uint_least64_t)x);
 }
 
 LELY_UTIL_ENDIAN_INLINE int_least64_t
 ldbe_i64(const uint_least8_t src[8])
 {
-	return ldbe_u64(src);
+	return (int_least64_t)ldbe_u64(src);
 }
 
 LELY_UTIL_ENDIAN_INLINE void
@@ -659,13 +659,13 @@ ldbe_u64(const uint_least8_t src[8])
 LELY_UTIL_ENDIAN_INLINE void
 stle_i64(uint_least8_t dst[8], int_least64_t x)
 {
-	stle_u64(dst, x);
+	stle_u64(dst, (uint_least64_t)x);
 }
 
 LELY_UTIL_ENDIAN_INLINE int_least64_t
 ldle_i64(const uint_least8_t src[8])
 {
-	return ldle_u64(src);
+	return (int_least64_t)ldle_u64(src);
 }
 
 LELY_UTIL_ENDIAN_INLINE void

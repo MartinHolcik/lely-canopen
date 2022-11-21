@@ -2,7 +2,7 @@
  * This header file is part of the utilities library; it contains the printing
  * function declarations.
  *
- * @copyright 2016-2020 Lely Industries N.V.
+ * @copyright 2016-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -298,7 +298,7 @@ LELY_UTIL_PRINT_INLINE size_t
 print_char(char **pbegin, char *end, int c)
 {
 	if (pbegin && *pbegin && (!end || *pbegin < end))
-		*(*pbegin)++ = (unsigned char)c;
+		*(*pbegin)++ = (char)(unsigned char)c;
 	return 1;
 }
 

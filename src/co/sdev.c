@@ -4,7 +4,7 @@
  *
  * @see lely/co/sdev.h
  *
- * @copyright 2019 Lely Industries N.V.
+ * @copyright 2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -133,9 +133,9 @@ snprintf_c99_sdev(char *s, size_t n, const co_dev_t *dev)
 		goto error_print_dev;
 	}
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	name = co_dev_get_name(dev);
 	if (name) {
@@ -145,18 +145,18 @@ snprintf_c99_sdev(char *s, size_t n, const co_dev_t *dev)
 			goto error_print_dev;
 		}
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf_c99_esc(s, n, name);
 		if (r < 0) {
 			errsv = errno;
 			goto error_print_dev;
 		}
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf(s, n, "\"),\n");
 	} else {
 		r = snprintf(s, n, "\t.name = NULL,\n");
@@ -166,9 +166,9 @@ snprintf_c99_sdev(char *s, size_t n, const co_dev_t *dev)
 		goto error_print_dev;
 	}
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	name = co_dev_get_vendor_name(dev);
 	if (name) {
@@ -178,18 +178,18 @@ snprintf_c99_sdev(char *s, size_t n, const co_dev_t *dev)
 			goto error_print_dev;
 		}
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf_c99_esc(s, n, name);
 		if (r < 0) {
 			errsv = errno;
 			goto error_print_dev;
 		}
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf(s, n, "\"),\n");
 	} else {
 		r = snprintf(s, n, "\t.vendor_name = NULL,\n");
@@ -199,9 +199,9 @@ snprintf_c99_sdev(char *s, size_t n, const co_dev_t *dev)
 		goto error_print_dev;
 	}
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	r = snprintf(s, n, "\t.vendor_id = 0x%08" PRIx32 ",\n",
 			co_dev_get_vendor_id(dev));
@@ -210,9 +210,9 @@ snprintf_c99_sdev(char *s, size_t n, const co_dev_t *dev)
 		goto error_print_dev;
 	}
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	name = co_dev_get_product_name(dev);
 	if (name) {
@@ -222,18 +222,18 @@ snprintf_c99_sdev(char *s, size_t n, const co_dev_t *dev)
 			goto error_print_dev;
 		}
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf_c99_esc(s, n, name);
 		if (r < 0) {
 			errsv = errno;
 			goto error_print_dev;
 		}
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf(s, n, "\"),\n");
 	} else {
 		r = snprintf(s, n, "\t.product_name = NULL,\n");
@@ -243,9 +243,9 @@ snprintf_c99_sdev(char *s, size_t n, const co_dev_t *dev)
 		goto error_print_dev;
 	}
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	r = snprintf(s, n,
 			"\t.product_code = 0x%08" PRIx32
@@ -256,9 +256,9 @@ snprintf_c99_sdev(char *s, size_t n, const co_dev_t *dev)
 		goto error_print_dev;
 	}
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	name = co_dev_get_order_code(dev);
 	if (name) {
@@ -268,18 +268,18 @@ snprintf_c99_sdev(char *s, size_t n, const co_dev_t *dev)
 			goto error_print_dev;
 		}
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf_c99_esc(s, n, name);
 		if (r < 0) {
 			errsv = errno;
 			goto error_print_dev;
 		}
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf(s, n, "\"),\n");
 	} else {
 		r = snprintf(s, n, "\t.order_code = NULL,\n");
@@ -289,9 +289,9 @@ snprintf_c99_sdev(char *s, size_t n, const co_dev_t *dev)
 		goto error_print_dev;
 	}
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	r = snprintf(s, n, "\t.baud = 0");
 	if (r < 0) {
@@ -299,9 +299,9 @@ snprintf_c99_sdev(char *s, size_t n, const co_dev_t *dev)
 		goto error_print_dev;
 	}
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 	unsigned int baud = co_dev_get_baud(dev);
 #define LELY_CO_DEFINE_BAUD(x) \
 	if (baud & CO_BAUD_##x) { \
@@ -311,9 +311,9 @@ snprintf_c99_sdev(char *s, size_t n, const co_dev_t *dev)
 			goto error_print_dev; \
 		} \
 		t += r; \
-		r = MIN((size_t)r, n); \
+		r = (int)MIN((size_t)r, n); \
 		s += r; \
-		n -= r; \
+		n -= (size_t)r; \
 	}
 
 	LELY_CO_DEFINE_BAUD(1000)
@@ -338,9 +338,9 @@ snprintf_c99_sdev(char *s, size_t n, const co_dev_t *dev)
 		goto error_print_dev;
 	}
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	co_unsigned16_t maxidx = co_dev_get_idx(dev, 0, NULL);
 	co_unsigned16_t *idx = malloc(maxidx * sizeof(co_unsigned16_t));
@@ -357,9 +357,9 @@ snprintf_c99_sdev(char *s, size_t n, const co_dev_t *dev)
 		goto error_print_obj;
 	}
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	for (size_t i = 0; i < maxidx; i++) {
 		r = snprintf(s, n, i ? ", {\n" : "{\n");
@@ -368,27 +368,27 @@ snprintf_c99_sdev(char *s, size_t n, const co_dev_t *dev)
 			goto error_print_obj;
 		}
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf_c99_sobj(s, n, co_dev_find_obj(dev, idx[i]));
 		if (r < 0) {
 			errsv = errno;
 			goto error_print_obj;
 		}
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf(s, n, "\t}");
 		if (r < 0) {
 			errsv = errno;
 			goto error_print_obj;
 		}
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 	}
 
 	r = snprintf(s, n, "}\n}");
@@ -417,11 +417,11 @@ asprintf_c99_sdev(char **ps, const co_dev_t *dev)
 	if (n < 0)
 		return n;
 
-	char *s = malloc(n + 1);
+	char *s = malloc((size_t)n + 1);
 	if (!s)
 		return -1;
 
-	n = snprintf_c99_sdev(s, n + 1, dev);
+	n = snprintf_c99_sdev(s, (size_t)n + 1, dev);
 	if (n < 0) {
 		int errsv = errno;
 		free(s);
@@ -589,16 +589,16 @@ snprintf_c99_sobj(char *s, size_t n, const co_obj_t *obj)
 		if (r < 0)
 			return r;
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf_c99_esc(s, n, name);
 		if (r < 0)
 			return r;
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf(s, n, "\"),\n");
 	} else {
 #endif
@@ -610,18 +610,18 @@ snprintf_c99_sobj(char *s, size_t n, const co_obj_t *obj)
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	r = snprintf(s, n, "#endif\n\t\t.idx = 0x%04x,\n\t\t.code = ",
 			co_obj_get_idx(obj));
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	co_unsigned8_t code = co_obj_get_code(obj);
 	switch (code) {
@@ -641,9 +641,9 @@ snprintf_c99_sobj(char *s, size_t n, const co_obj_t *obj)
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	co_unsigned8_t subidx[0xff];
 	co_unsigned8_t maxsubidx = co_obj_get_subidx(obj, 0xff, subidx);
@@ -654,32 +654,32 @@ snprintf_c99_sobj(char *s, size_t n, const co_obj_t *obj)
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	for (size_t i = 0; i < maxsubidx; i++) {
 		r = snprintf(s, n, i ? ", {\n" : "{\n");
 		if (r < 0)
 			return r;
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf_c99_ssub(s, n, co_obj_find_sub(obj, subidx[i]));
 		if (r < 0)
 			return r;
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf(s, n, "\t\t}");
 		if (r < 0)
 			return r;
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 	}
 
 	r = snprintf(s, n, "}\n");
@@ -709,16 +709,16 @@ snprintf_c99_ssub(char *s, size_t n, const co_sub_t *sub)
 		if (r < 0)
 			return r;
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf_c99_esc(s, n, name);
 		if (r < 0)
 			return r;
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf(s, n, "\"),\n");
 	} else {
 #endif
@@ -730,18 +730,18 @@ snprintf_c99_ssub(char *s, size_t n, const co_sub_t *sub)
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	r = snprintf(s, n, "#endif\n\t\t\t.subidx = 0x%02x,\n\t\t\t.type = ",
 			co_sub_get_subidx(sub));
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	co_unsigned16_t type = co_sub_get_type(sub);
 	switch (type) {
@@ -756,17 +756,17 @@ snprintf_c99_ssub(char *s, size_t n, const co_sub_t *sub)
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	r = snprintf(s, n, "#if !LELY_NO_CO_OBJ_LIMITS\n\t\t\t.min = ");
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 #if !LELY_NO_CO_OBJ_LIMITS
 	r = snprintf_c99_sval(s, n, type, co_sub_get_min(sub));
 #else
@@ -778,17 +778,17 @@ snprintf_c99_ssub(char *s, size_t n, const co_sub_t *sub)
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	r = snprintf(s, n, ",\n\t\t\t.max = ");
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 #if !LELY_NO_CO_OBJ_LIMITS
 	r = snprintf_c99_sval(s, n, type, co_sub_get_max(sub));
 #else
@@ -800,18 +800,18 @@ snprintf_c99_ssub(char *s, size_t n, const co_sub_t *sub)
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	r = snprintf(s, n,
 			",\n#endif\n#if !LELY_NO_CO_OBJ_DEFAULT\n\t\t\t.def = ");
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 #if !LELY_NO_CO_OBJ_DEFAULT
 	r = snprintf_c99_sval(s, n, type, co_sub_get_def(sub));
 #else
@@ -823,17 +823,17 @@ snprintf_c99_ssub(char *s, size_t n, const co_sub_t *sub)
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	r = snprintf(s, n, ",\n#endif\n\t\t\t.val = ");
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 #if !LELY_NO_CO_OBJ_FILE
 	// clang-format off
 	if (type == CO_DEFTYPE_DOMAIN
@@ -849,17 +849,17 @@ snprintf_c99_ssub(char *s, size_t n, const co_sub_t *sub)
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	r = snprintf(s, n, ",\n\t\t\t.access = ");
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 	unsigned int access = co_sub_get_access(sub);
 	switch (access) {
 	case CO_ACCESS_RO: r = snprintf(s, n, "CO_ACCESS_RO,\n"); break;
@@ -873,26 +873,26 @@ snprintf_c99_ssub(char *s, size_t n, const co_sub_t *sub)
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	r = snprintf(s, n, "\t\t\t.pdo_mapping = %d,\n",
 			co_sub_get_pdo_mapping(sub));
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	r = snprintf(s, n, "\t\t\t.flags = 0\n");
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 	unsigned int flags = co_sub_get_flags(sub);
 #define LELY_CO_DEFINE_FLAGS(x) \
 	if (flags & CO_OBJ_FLAGS_##x) { \
@@ -900,9 +900,9 @@ snprintf_c99_ssub(char *s, size_t n, const co_sub_t *sub)
 		if (r < 0) \
 			return r; \
 		t += r; \
-		r = MIN((size_t)r, n); \
+		r = (int)MIN((size_t)r, n); \
 		s += r; \
-		n -= r; \
+		n -= (size_t)r; \
 	}
 
 	LELY_CO_DEFINE_FLAGS(READ)
@@ -1012,16 +1012,16 @@ snprintf_c99_sval(char *s, size_t n, co_unsigned16_t type, const void *val)
 			if (r < 0)
 				return r;
 			t += r;
-			r = MIN((size_t)r, n);
+			r = (int)MIN((size_t)r, n);
 			s += r;
-			n -= r;
+			n -= (size_t)r;
 			r = snprintf_c99_esc(s, n, u->vs);
 			if (r < 0)
 				return r;
 			t += r;
-			r = MIN((size_t)r, n);
+			r = (int)MIN((size_t)r, n);
 			s += r;
-			n -= r;
+			n -= (size_t)r;
 			r = snprintf(s, n, "\") }");
 		} else {
 			r = snprintf(s, n, "{ .vs = NULL }");
@@ -1034,9 +1034,9 @@ snprintf_c99_sval(char *s, size_t n, co_unsigned16_t type, const void *val)
 			if (r < 0)
 				return r;
 			t += r;
-			r = MIN((size_t)r, n);
+			r = (int)MIN((size_t)r, n);
 			s += r;
-			n -= r;
+			n -= (size_t)r;
 			size_t size = co_val_sizeof(type, val);
 			for (size_t i = 0; i < size; i++) {
 				// clang-format off
@@ -1048,9 +1048,9 @@ snprintf_c99_sval(char *s, size_t n, co_unsigned16_t type, const void *val)
 				if (r < 0)
 					return r;
 				t += r;
-				r = MIN((size_t)r, n);
+				r = (int)MIN((size_t)r, n);
 				s += r;
-				n -= r;
+				n -= (size_t)r;
 			}
 			r = snprintf(s, n, "\"\n\t\t\t) }");
 		} else {
@@ -1064,9 +1064,9 @@ snprintf_c99_sval(char *s, size_t n, co_unsigned16_t type, const void *val)
 			if (r < 0)
 				return r;
 			t += r;
-			r = MIN((size_t)r, n);
+			r = (int)MIN((size_t)r, n);
 			s += r;
-			n -= r;
+			n -= (size_t)r;
 			size_t size = co_val_sizeof(type, val) / 2 + 1;
 			for (size_t i = 0; i < size; i++) {
 				// clang-format off
@@ -1078,9 +1078,9 @@ snprintf_c99_sval(char *s, size_t n, co_unsigned16_t type, const void *val)
 				if (r < 0)
 					return r;
 				t += r;
-				r = MIN((size_t)r, n);
+				r = (int)MIN((size_t)r, n);
 				s += r;
-				n -= r;
+				n -= (size_t)r;
 			}
 			r = snprintf(s, n, "\n\t\t\t}) }");
 		} else {
@@ -1110,9 +1110,9 @@ snprintf_c99_sval(char *s, size_t n, co_unsigned16_t type, const void *val)
 			if (r < 0)
 				return r;
 			t += r;
-			r = MIN((size_t)r, n);
+			r = (int)MIN((size_t)r, n);
 			s += r;
-			n -= r;
+			n -= (size_t)r;
 			const co_unsigned8_t *bp = u->dom;
 			size_t size = co_val_sizeof(type, val);
 			for (size_t i = 0; i < size; i++) {
@@ -1125,9 +1125,9 @@ snprintf_c99_sval(char *s, size_t n, co_unsigned16_t type, const void *val)
 				if (r < 0)
 					return r;
 				t += r;
-				r = MIN((size_t)r, n);
+				r = (int)MIN((size_t)r, n);
 				s += r;
-				n -= r;
+				n -= (size_t)r;
 			}
 			r = snprintf(s, n, "\n\t\t\t}) }");
 		} else {
@@ -1275,9 +1275,9 @@ snprintf_c99_esc(char *s, size_t n, const char *esc)
 		if (r < 0)
 			return r;
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 	}
 
 	return t;

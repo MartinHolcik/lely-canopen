@@ -4,7 +4,7 @@
  *
  * @see lely/util/diag.h
  *
- * @copyright 2013-2020 Lely Industries N.V.
+ * @copyright 2013-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -90,7 +90,7 @@ floc_lex(struct floc *at, const char *begin, const char *end)
 			break;
 		}
 	}
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 int
@@ -108,17 +108,17 @@ snprintf_floc(char *s, size_t n, const struct floc *at)
 		if (r < 0)
 			return r;
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		if (at->line) {
 			r = snprintf(s, n, "%d:", at->line);
 			if (r < 0)
 				return r;
 			t += r;
-			r = MIN((size_t)r, n);
+			r = (int)MIN((size_t)r, n);
 			s += r;
-			n -= r;
+			n -= (size_t)r;
 			if (at->column) {
 				r = snprintf(s, n, "%d:", at->column);
 				if (r < 0)
@@ -318,9 +318,9 @@ dialog_diag_at_handler(void *handle, enum diag_severity severity, int errc,
 		DWORD dwResponse;
 		WTSSendMessageA(WTS_CURRENT_SERVER_HANDLE,
 				WTSGetActiveConsoleSessionId(), pTitle,
-				strlen(pTitle), pMessage, strlen(pMessage),
-				Style, LELY_DIALOG_DIAG_TIMEOUT, &dwResponse,
-				FALSE);
+				(DWORD)strlen(pTitle), pMessage,
+				(DWORD)strlen(pMessage), Style,
+				LELY_DIALOG_DIAG_TIMEOUT, &dwResponse, FALSE);
 	}
 	free(pMessage);
 	errno = errsv;
@@ -439,16 +439,16 @@ vsnprintf_diag_at(char *s, size_t n, enum diag_severity severity, int errc,
 		if (r < 0)
 			return r;
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		r = snprintf(s, n, " ");
 		if (r < 0)
 			return r;
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 	}
 
 	switch (severity) {
@@ -462,26 +462,26 @@ vsnprintf_diag_at(char *s, size_t n, enum diag_severity severity, int errc,
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	if (format && *format) {
 		r = vsnprintf(s, n, format, ap);
 		if (r < 0)
 			return r;
 		t += r;
-		r = MIN((size_t)r, n);
+		r = (int)MIN((size_t)r, n);
 		s += r;
-		n -= r;
+		n -= (size_t)r;
 		if (errc) {
 			r = snprintf(s, n, ": ");
 			if (r < 0)
 				return r;
 			t += r;
-			r = MIN((size_t)r, n);
+			r = (int)MIN((size_t)r, n);
 			s += r;
-			n -= r;
+			n -= (size_t)r;
 		}
 	}
 
@@ -511,11 +511,11 @@ vasprintf_diag_at(char **ps, enum diag_severity severity, int errc,
 	if (n < 0)
 		return n;
 
-	char *s = malloc(n + 1);
+	char *s = malloc((size_t)n + 1);
 	if (!s)
 		return -1;
 
-	n = vsnprintf_diag_at(s, n + 1, severity, errc, at, format, ap);
+	n = vsnprintf_diag_at(s, (size_t)n + 1, severity, errc, at, format, ap);
 	if (n < 0) {
 		int errsv = errno;
 		free(s);

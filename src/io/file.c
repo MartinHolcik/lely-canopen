@@ -4,7 +4,7 @@
  *
  * @see lely/io/file.h
  *
- * @copyright 2017-2020 Lely Industries N.V.
+ * @copyright 2017-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -265,7 +265,7 @@ file_write(struct io_handle *handle, const void *buf, size_t nbytes)
 	if (((struct file *)handle)->flags & IO_FILE_APPEND) {
 		// This value of the offset causes WriteFile() to write to the
 		// end of file.
-		current = UINT64_MAX;
+		current = (io_off_t)UINT64_MAX;
 	} else {
 		current = file_seek(handle, 0, IO_SEEK_CURRENT);
 		if (current == -1)
@@ -317,8 +317,8 @@ file_seek(struct io_handle *handle, io_off_t offset, int whence)
 
 	LARGE_INTEGER li;
 	li.QuadPart = offset;
-	li.LowPart = SetFilePointer(
-			handle->fd, li.LowPart, &li.HighPart, dwMoveMethod);
+	li.LowPart = SetFilePointer(handle->fd, (LONG)li.LowPart, &li.HighPart,
+			dwMoveMethod);
 	if (li.LowPart == INVALID_SET_FILE_POINTER)
 		return -1;
 	return li.QuadPart;
@@ -406,7 +406,7 @@ _file_read(struct io_handle *handle, void *buf, size_t nbytes, io_off_t offset)
 	li.QuadPart = offset;
 	OVERLAPPED overlapped = { 0 };
 	overlapped.Offset = li.LowPart;
-	overlapped.OffsetHigh = li.HighPart;
+	overlapped.OffsetHigh = (DWORD)li.HighPart;
 	overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 	if (!overlapped.hEvent) {
 		dwErrCode = GetLastError();
@@ -416,7 +416,7 @@ _file_read(struct io_handle *handle, void *buf, size_t nbytes, io_off_t offset)
 	DWORD dwNumberOfBytesRead = 0;
 
 	// clang-format off
-	if (ReadFile(handle->fd, buf, nbytes, &dwNumberOfBytesRead,
+	if (ReadFile(handle->fd, buf, (DWORD)nbytes, &dwNumberOfBytesRead,
 			&overlapped))
 		// clang-format on
 		goto done;
@@ -437,7 +437,7 @@ _file_read(struct io_handle *handle, void *buf, size_t nbytes, io_off_t offset)
 done:
 	CloseHandle(overlapped.hEvent);
 	SetLastError(dwErrCode);
-	return dwNumberOfBytesRead;
+	return (ssize_t)dwNumberOfBytesRead;
 
 error_GetOverlappedResult:
 error_ReadFile:
@@ -459,7 +459,7 @@ _file_write(struct io_handle *handle, const void *buf, size_t nbytes,
 	li.QuadPart = offset;
 	OVERLAPPED overlapped = { 0 };
 	overlapped.Offset = li.LowPart;
-	overlapped.OffsetHigh = li.HighPart;
+	overlapped.OffsetHigh = (DWORD)li.HighPart;
 	overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 	if (!overlapped.hEvent) {
 		dwErrCode = GetLastError();
@@ -469,7 +469,7 @@ _file_write(struct io_handle *handle, const void *buf, size_t nbytes,
 	DWORD dwNumberOfBytesWritten = 0;
 
 	// clang-format off
-	if (WriteFile(handle->fd, buf, nbytes, &dwNumberOfBytesWritten,
+	if (WriteFile(handle->fd, buf, (DWORD)nbytes, &dwNumberOfBytesWritten,
 			&overlapped))
 		// clang-format on
 		goto done;
@@ -490,7 +490,7 @@ _file_write(struct io_handle *handle, const void *buf, size_t nbytes,
 done:
 	CloseHandle(overlapped.hEvent);
 	SetLastError(dwErrCode);
-	return dwNumberOfBytesWritten;
+	return (ssize_t)dwNumberOfBytesWritten;
 
 error_GetOverlappedResult:
 error_WriteFile:

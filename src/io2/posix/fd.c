@@ -2,7 +2,7 @@
  * This file is part of the I/O library; it contains the implementation of the
  * common file descriptor functions.
  *
- * @copyright 2018-2020 Lely Industries N.V.
+ * @copyright 2018-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -57,7 +57,7 @@ io_fd_wait(int fd, int *events, int timeout)
 	assert(events);
 
 	int result;
-	struct pollfd fds[1] = { { .fd = fd, .events = *events } };
+	struct pollfd fds[1] = { { .fd = fd, .events = (short)*events } };
 	do
 		result = poll(fds, 1, timeout);
 	// clang-format off

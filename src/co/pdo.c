@@ -220,17 +220,19 @@ co_dev_chk_sam_mpdo(
 			if (!val)
 				continue;
 			// Check if the object index matches.
-			if (((val >> 8) & 0xffff) != idx)
+			if (((val >> 8) & 0xffffu) != idx)
 				continue;
 			// Check if the object sub-index is part of the
 			// specified block.
-			co_unsigned8_t min = val & 0xff;
+			co_unsigned8_t min = val & 0xffu;
 			if (subidx < min)
 				continue;
 			co_unsigned8_t max = min;
-			co_unsigned8_t blk = (val >> 24) & 0xff;
+			co_unsigned8_t blk =
+					(co_unsigned8_t)(val >> 24) & 0xffu;
 			if (blk)
-				max += MIN(blk - 1, 0xff - min);
+				max += MIN((co_unsigned8_t)(blk - 1),
+						(co_unsigned8_t)(0xff - min));
 			if (subidx > max)
 				continue;
 
@@ -266,25 +268,27 @@ co_dev_map_sam_mpdo(const co_dev_t *dev, co_unsigned8_t id, co_unsigned16_t idx,
 			// Check if the remote node-ID and object index match.
 			if ((val & 0xff) != id)
 				continue;
-			if (((val >> 16) & 0xffff) != idx)
+			if (((val >> 16) & 0xffffu) != idx)
 				continue;
 			// Check if the remote object sub-index is part of the
 			// specified block.
-			co_unsigned8_t min = (val >> 8) & 0xff;
+			co_unsigned8_t min = (val >> 8) & 0xffu;
 			if (subidx < min)
 				continue;
 			co_unsigned8_t max = min;
-			co_unsigned8_t blk = (val >> 54) & 0xff;
+			co_unsigned8_t blk =
+					(co_unsigned8_t)(val >> 54) & 0xffu;
 			if (blk)
-				max += MIN(blk - 1, 0xff - min);
+				max += MIN((co_unsigned8_t)(blk - 1),
+						(co_unsigned8_t)(0xff - min));
 			if (subidx > max)
 				continue;
 
 			if (pidx)
-				*pidx = (val >> 40) & 0xffff;
+				*pidx = (co_unsigned16_t)(val >> 40) & 0xffffu;
 			if (psubidx) {
-				*psubidx = (val >> 32) & 0xff;
-				*psubidx += subidx - min;
+				*psubidx = (co_unsigned8_t)(val >> 32) & 0xffu;
+				*psubidx += (co_unsigned8_t)(subidx - min);
 			}
 			return 1;
 		}
@@ -311,14 +315,14 @@ co_pdo_map(const struct co_pdo_map_par *par, const co_unsigned64_t *val,
 		if (!map)
 			continue;
 
-		co_unsigned8_t len = map & 0xff;
+		co_unsigned8_t len = map & 0xffu;
 		if (offset + len > CAN_MAX_LEN * 8)
 			return CO_SDO_AC_PDO_LEN;
 
 		uint_least8_t tmp[sizeof(co_unsigned64_t)] = { 0 };
 		stle_u64(tmp, val[i]);
 		if (buf && pn && offset + len <= *pn * 8)
-			bcpyle(buf, offset, tmp, 0, len);
+			bcpyle(buf, (int)offset, tmp, 0, len);
 
 		offset += len;
 	}
@@ -345,12 +349,12 @@ co_pdo_unmap(const struct co_pdo_map_par *par, const uint_least8_t *buf,
 		if (!map)
 			continue;
 
-		co_unsigned8_t len = map & 0xff;
+		co_unsigned8_t len = map & 0xffu;
 		if (offset + len > n * 8)
 			return CO_SDO_AC_PDO_LEN;
 
 		uint_least8_t tmp[sizeof(co_unsigned64_t)] = { 0 };
-		bcpyle(tmp, 0, buf, offset, len);
+		bcpyle(tmp, 0, buf, (int)offset, len);
 		if (val && pn && i < *pn)
 			val[i] = ldle_u64(tmp);
 
@@ -391,9 +395,9 @@ co_pdo_dn(const struct co_pdo_map_par *par, co_dev_t *dev,
 		if (!map)
 			continue;
 
-		co_unsigned16_t idx = (map >> 16) & 0xffff;
-		co_unsigned8_t subidx = (map >> 8) & 0xff;
-		co_unsigned8_t len = map & 0xff;
+		co_unsigned16_t idx = (co_unsigned16_t)(map >> 16) & 0xffffu;
+		co_unsigned8_t subidx = (map >> 8) & 0xffu;
+		co_unsigned8_t len = map & 0xffu;
 
 		// Check the PDO length.
 		if (offset + len > n * 8)
@@ -409,9 +413,9 @@ co_pdo_dn(const struct co_pdo_map_par *par, co_dev_t *dev,
 		if (sub) {
 			// Copy the value and download it into the sub-object.
 			uint_least8_t tmp[CAN_MAX_LEN] = { 0 };
-			bcpyle(tmp, 0, buf, offset, len);
+			bcpyle(tmp, 0, buf, (int)offset, len);
 			co_sdo_req_clear(req);
-			req->size = (len + 7) / 8;
+			req->size = (size_t)((len + 7) / 8);
 			req->buf = tmp;
 			req->nbyte = req->size;
 			ac = co_sub_dn_ind(sub, req);
@@ -445,9 +449,9 @@ co_pdo_up(const struct co_pdo_map_par *par, const co_dev_t *dev,
 		if (!map)
 			continue;
 
-		co_unsigned16_t idx = (map >> 16) & 0xffff;
-		co_unsigned8_t subidx = (map >> 8) & 0xff;
-		co_unsigned8_t len = map & 0xff;
+		co_unsigned16_t idx = (co_unsigned16_t)(map >> 16) & 0xffffu;
+		co_unsigned8_t subidx = (map >> 8) & 0xffu;
+		co_unsigned8_t len = map & 0xffu;
 
 		// Check the PDO length.
 		if (offset + len > CAN_MAX_LEN * 8)
@@ -467,7 +471,7 @@ co_pdo_up(const struct co_pdo_map_par *par, const co_dev_t *dev,
 		if (!co_sdo_req_first(req) || !co_sdo_req_last(req))
 			return CO_SDO_AC_PDO_LEN;
 		if (buf && pn && offset + len <= *pn * 8)
-			bcpyle(buf, offset, req->buf, 0, len);
+			bcpyle(buf, (int)offset, req->buf, 0, len);
 
 		offset += len;
 	}

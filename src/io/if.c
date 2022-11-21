@@ -4,7 +4,7 @@
  *
  * @see lely/io/if.h
  *
- * @copyright 2016-2020 Lely Industries N.V.
+ * @copyright 2016-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -265,7 +265,7 @@ io_addr_set(io_addr_t *addr, const struct sockaddr *address)
 #endif
 	default: addr->addrlen = 0; break;
 	}
-	memcpy(&addr->addr, address, addr->addrlen);
+	memcpy(&addr->addr, address, (size_t)addr->addrlen);
 }
 
 #endif // _WIN32 || (__linux__ && HAVE_IFADDRS_H)
@@ -280,8 +280,8 @@ ConvertLengthToIpv6Mask(ULONG MaskLength, u_char Mask[16])
 		return ERROR_INVALID_PARAMETER;
 	}
 
-	for (LONG i = MaskLength, j = 0; i > 0; i -= 8, j++)
-		Mask[j] = i >= 8 ? 0xff : ((0xff << (8 - i)) & 0xff);
+	for (LONG i = (LONG)MaskLength, j = 0; i > 0; i -= 8, j++)
+		Mask[j] = (u_char)(i >= 8 ? 0xff : ((0xff << (8 - i)) & 0xff));
 	return NO_ERROR;
 }
 #endif

@@ -4,7 +4,7 @@
  *
  * @see lely/io2/linux/can.h
  *
- * @copyright 2015-2021 Lely Industries N.V.
+ * @copyright 2015-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -448,7 +448,7 @@ io_can_chan_open(io_can_chan_t *chan, const io_can_ctrl_t *ctrl, int flags)
 	}
 
 	struct sockaddr_can addr = { .can_family = AF_CAN,
-		.can_ifindex = io_can_ctrl_get_index(ctrl) };
+		.can_ifindex = (int)io_can_ctrl_get_index(ctrl) };
 
 	if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
 		errsv = errno;
@@ -512,7 +512,7 @@ io_can_chan_assign(io_can_chan_t *chan, int fd)
 		errno = ENODEV;
 		return -1;
 	}
-	unsigned int ifindex = addr.can_ifindex;
+	unsigned int ifindex = (unsigned int)addr.can_ifindex;
 
 	struct io_can_attr attr = IO_CAN_ATTR_INIT;
 	if (io_can_attr_get(&attr, ifindex) == -1)
@@ -630,7 +630,7 @@ io_can_fd_read(int fd, struct canfd_frame *frame, size_t *pnbytes, int *pflags,
 	for (;;) {
 		result = io_fd_recvmsg(fd, &msg, 0, timeout);
 		if (result < 0)
-			return result;
+			return (int)result;
 #if LELY_NO_CANFD
 		if (result == CAN_MTU)
 #else
@@ -642,7 +642,7 @@ io_can_fd_read(int fd, struct canfd_frame *frame, size_t *pnbytes, int *pflags,
 	}
 
 	if (pnbytes)
-		*pnbytes = result;
+		*pnbytes = (size_t)result;
 
 	if (pflags)
 		*pflags = msg.msg_flags;
@@ -1202,7 +1202,7 @@ io_can_chan_impl_rxbuf_task_func(struct ev_task *task)
 			post_rxbuf = 0;
 		}
 	}
-	impl->rxbuf_posted = post_rxbuf;
+	impl->rxbuf_posted = !!post_rxbuf;
 #if !LELY_NO_THREADS
 	pthread_mutex_unlock(&impl->mtx);
 #endif
@@ -1256,7 +1256,7 @@ io_can_chan_impl_read_task_func(struct ev_task *task)
 	// cppcheck-suppress knownConditionTrueFalse
 	if (post_rxbuf)
 		impl->rxbuf_posted = 1;
-	impl->read_posted = post_read;
+	impl->read_posted = !!post_read;
 #if !LELY_NO_THREADS
 	pthread_mutex_unlock(&impl->mtx);
 #endif
@@ -1348,7 +1348,7 @@ io_can_chan_impl_write_task_func(struct ev_task *task)
 			post_write = 0;
 		}
 	}
-	impl->write_posted = post_write;
+	impl->write_posted = !!post_write;
 #if !LELY_NO_THREADS
 	pthread_mutex_unlock(&impl->mtx);
 #endif

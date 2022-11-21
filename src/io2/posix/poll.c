@@ -4,7 +4,7 @@
  *
  * @see lely/io2/posix/poll.h
  *
- * @copyright 2015-2020 Lely Industries N.V.
+ * @copyright 2015-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -438,7 +438,7 @@ io_poll_poll_wait(ev_poll_t *poll_, int timeout_)
 			if (watch->_events & IO_EVENT_OUT)
 				events |= POLLOUT;
 			fds[i++] = (struct pollfd){ .fd = watch->_fd,
-				.events = events };
+				.events = (short)events };
 		}
 		assert(i == nfds);
 #else

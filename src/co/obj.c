@@ -4,7 +4,7 @@
  *
  * @see lely/co/obj.h, src/obj.h
  *
- * @copyright 2020 Lely Industries N.V.
+ * @copyright 2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -793,7 +793,7 @@ co_sub_set_access(co_sub_t *sub, unsigned int access)
 	case CO_ACCESS_RW:
 	case CO_ACCESS_RWR:
 	case CO_ACCESS_RWW:
-	case CO_ACCESS_CONST: sub->access = access; return 0;
+	case CO_ACCESS_CONST: sub->access = access & 0x1fu; return 0;
 	default: set_errnum(ERRNUM_INVAL); return -1;
 	}
 }
@@ -827,7 +827,7 @@ co_sub_set_flags(co_sub_t *sub, unsigned int flags)
 {
 	assert(sub);
 
-	sub->flags = flags;
+	sub->flags = flags & 0x03ffffffu;
 }
 
 #if !LELY_NO_CO_OBJ_FILE

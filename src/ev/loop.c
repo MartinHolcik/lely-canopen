@@ -4,7 +4,7 @@
  *
  * @see lely/ev/loop.h
  *
- * @copyright 2018-2019 Lely Industries N.V.
+ * @copyright 2018-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -875,7 +875,7 @@ ev_loop_ctx_wait_one_until(struct ev_loop_ctx **pctx, ev_loop_t *loop,
 					msec = INT_MAX;
 			}
 #endif // !LELY_NO_TIMEOUT
-			result = ev_poll_wait(loop->poll, msec);
+			result = ev_poll_wait(loop->poll, (int)msec);
 #if !LELY_NO_TIMEOUT
 		error:
 #endif

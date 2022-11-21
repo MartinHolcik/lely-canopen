@@ -1696,7 +1696,7 @@ co_nmt_on_tpdo_event_unlock(co_nmt_t *nmt)
 	int errsv = get_errc();
 	for (int i = 0; i < CO_NUM_PDOS / LONG_BIT; i++) {
 		if (nmt->tpdo_event_mask[i]) {
-			co_unsigned16_t n = i * LONG_BIT + 1;
+			co_unsigned16_t n = (co_unsigned16_t)(i * LONG_BIT + 1);
 			for (int j = 0; j < LONG_BIT && n <= nmt->srv.ntpdo
 					&& nmt->tpdo_event_mask[i];
 					j++, n++) {
@@ -1756,7 +1756,7 @@ co_nmt_get_st(const co_nmt_t *nmt)
 {
 	assert(nmt);
 
-	return nmt->st & ~CO_NMT_ST_TOGGLE;
+	return nmt->st & (co_unsigned8_t)~CO_NMT_ST_TOGGLE;
 }
 
 int
@@ -2293,7 +2293,7 @@ co_nmt_boot_con(co_nmt_t *nmt, co_unsigned8_t id, co_unsigned8_t st, char es)
 	// changed during the 'boot slave' procedure.
 	struct co_nmt_slave *slave = &nmt->slaves[id - 1];
 	slave->assignment = co_dev_get_val_u32(nmt->dev, 0x1f81, id);
-	slave->est = st & ~CO_NMT_ST_TOGGLE;
+	slave->est = st & (co_unsigned8_t)~CO_NMT_ST_TOGGLE;
 	// If we did not (yet) receive a state but the error control service was
 	// successfully started, assume the node is pre-operational.
 	if (!slave->est && (!es || es == 'L'))
@@ -2314,7 +2314,7 @@ co_nmt_boot_con(co_nmt_t *nmt, co_unsigned8_t id, co_unsigned8_t st, char es)
 	// Update object 1F82 (Request NMT) with the NMT state.
 	co_sub_t *sub = co_dev_find_sub(nmt->dev, 0x1f82, id);
 	if (sub)
-		co_sub_set_val_u8(sub, st & ~CO_NMT_ST_TOGGLE);
+		co_sub_set_val_u8(sub, st & (co_unsigned8_t)~CO_NMT_ST_TOGGLE);
 
 	// If the slave booted successfully and can be started by the NMT
 	// service, and if the master is allowed to start the nodes (bit 3 of
@@ -2339,8 +2339,11 @@ co_nmt_boot_con(co_nmt_t *nmt, co_unsigned8_t id, co_unsigned8_t st, char es)
 		} else {
 			// Enable node guarding if the guard time and lifetime
 			// factor are non-zero.
-			co_unsigned16_t gt = (slave->assignment >> 16) & 0xffff;
-			co_unsigned8_t ltf = (slave->assignment >> 8) & 0xff;
+			// clang-format off
+			co_unsigned16_t gt = (co_unsigned16_t)(
+					slave->assignment >> 16) & 0xffffu;
+			// clang-format on
+			co_unsigned8_t ltf = (slave->assignment >> 8) & 0xffu;
 			if (co_nmt_ng_req(nmt, id, gt, ltf) == -1)
 				diag(DIAG_ERROR, get_errc(),
 						"unable to guard node %02X",
@@ -2924,7 +2927,7 @@ co_nmt_ng_timer(const struct timespec *tp, void *data)
 	assert(nmt);
 	assert(nmt->master);
 	assert(nmt->ng_ind);
-	co_unsigned8_t id = slave - nmt->slaves + 1;
+	co_unsigned8_t id = (co_unsigned8_t)(slave - nmt->slaves + 1);
 	assert(id && id <= CO_NUM_NODES);
 
 	// Reset the timer for the next RTR.
@@ -2965,7 +2968,8 @@ co_nmt_ec_timer(const struct timespec *tp, void *data)
 
 	if (nmt->ms) {
 		// Send the state of the NMT service (excluding the toggle bit).
-		co_nmt_ec_send_res(nmt, nmt->st & ~CO_NMT_ST_TOGGLE);
+		co_nmt_ec_send_res(nmt,
+				nmt->st & (co_unsigned8_t)~CO_NMT_ST_TOGGLE);
 #if !LELY_NO_CO_NG
 	} else if (nmt->gt && nmt->ltf) {
 		assert(nmt->lg_ind);
@@ -3053,11 +3057,13 @@ co_nmt_st_ind(co_nmt_t *nmt, co_unsigned8_t id, co_unsigned8_t st)
 		// Update object 1F82 (Request NMT) with the NMT state.
 		co_sub_t *sub = co_dev_find_sub(nmt->dev, 0x1f82, id);
 		if (sub)
-			co_sub_set_val_u8(sub, st & ~CO_NMT_ST_TOGGLE);
+			co_sub_set_val_u8(sub,
+					st & (co_unsigned8_t)~CO_NMT_ST_TOGGLE);
 	}
 #endif
 
-	nmt->st_ind(nmt, id, st & ~CO_NMT_ST_TOGGLE, nmt->st_data);
+	nmt->st_ind(nmt, id, st & (co_unsigned8_t)~CO_NMT_ST_TOGGLE,
+			nmt->st_data);
 }
 
 #if !LELY_NO_CO_NG
@@ -3465,7 +3471,8 @@ co_nmt_start_on_enter(co_nmt_t *nmt)
 	// Enable all services.
 	co_nmt_srv_set(&nmt->srv, nmt, CO_NMT_START_SRV);
 
-	nmt->st = CO_NMT_ST_START | (nmt->st & CO_NMT_ST_TOGGLE);
+	nmt->st = (co_unsigned8_t)(CO_NMT_ST_START
+			| (nmt->st & CO_NMT_ST_TOGGLE));
 	co_nmt_st_ind(nmt, co_dev_get_id(nmt->dev), nmt->st);
 
 #if !LELY_NO_CO_NMT_BOOT
@@ -3539,7 +3546,8 @@ co_nmt_stop_on_enter(co_nmt_t *nmt)
 	// Disable all services (except LSS).
 	co_nmt_srv_set(&nmt->srv, nmt, CO_NMT_STOP_SRV);
 
-	nmt->st = CO_NMT_ST_STOP | (nmt->st & CO_NMT_ST_TOGGLE);
+	nmt->st = (co_unsigned8_t)(CO_NMT_ST_STOP
+			| (nmt->st & CO_NMT_ST_TOGGLE));
 	co_nmt_st_ind(nmt, co_dev_get_id(nmt->dev), nmt->st);
 
 	if (nmt->cs_ind)

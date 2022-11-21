@@ -4,7 +4,7 @@
  *
  * @see lely/io2/sys/timer.h
  *
- * @copyright 2015-2021 Lely Industries N.V.
+ * @copyright 2015-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -517,7 +517,7 @@ io_timer_impl_wait_task_func(struct ev_task *task)
 		if (overrun > (int)(INT_MAX - value))
 			overrun = INT_MAX;
 		else
-			overrun += value;
+			overrun += (int)value;
 	}
 	if (result == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
 		errno = 0;

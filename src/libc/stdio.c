@@ -3,7 +3,7 @@
  *
  * @see lely/libc/stdio.h
  *
- * @copyright 2016-2018 Lely Industries N.V.
+ * @copyright 2016-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -57,7 +57,7 @@ getdelim(char **lineptr, size_t *n, int delim, FILE *stream)
 	for (;;) {
 		// Make sure we have enough space for the next character and the
 		// terminating null byte.
-		if (*n - (cp - *lineptr) < 2) {
+		if (*n - (size_t)(cp - *lineptr) < 2) {
 			int errsv = errno;
 			// First try to double the buffer, to minimize the
 			// number of reallocations.
@@ -69,7 +69,7 @@ getdelim(char **lineptr, size_t *n, int delim, FILE *stream)
 				// If doubling the buffer fails, try to allocate
 				// just enough memory for the next character
 				// (including the terminating null byte).
-				size = cp - *lineptr + 2;
+				size = (size_t)(cp - *lineptr + 2);
 				tmp = realloc(*lineptr, size);
 				if (!tmp)
 					return -1;
@@ -84,7 +84,7 @@ getdelim(char **lineptr, size_t *n, int delim, FILE *stream)
 		// allows the caller to retrieve the last (undelimited) record.
 		if (c == EOF && (ferror(stream) || !(cp - *lineptr)))
 			return -1;
-		if (c == EOF || (*cp++ = c) == delim)
+		if (c == EOF || (*cp++ = (char)(unsigned char)c) == delim)
 			break;
 	}
 	*cp = '\0';

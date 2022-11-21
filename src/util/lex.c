@@ -4,7 +4,7 @@
  *
  * @see lely/util/lex.h
  *
- * @copyright 2017-2020 Lely Industries N.V.
+ * @copyright 2017-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -95,7 +95,7 @@ lex_utf8(const char *begin, const char *end, struct floc *at, char32_t *pc32)
 	char32_t c32;
 
 	int n;
-	unsigned char c = *cp++;
+	unsigned char c = (unsigned char)*cp++;
 	if (!(c & 0x80)) {
 		// 0xxxxxxx is an ASCII character.
 		c32 = c & 0x7f;
@@ -177,7 +177,7 @@ lex_c99_id(const char *begin, const char *end, struct floc *at, char *s,
 	if (pn) {
 		if (s)
 			memcpy(s, begin, MIN((size_t)(cp - begin), *pn));
-		*pn = cp - begin;
+		*pn = (size_t)(cp - begin);
 	}
 
 	return floc_lex(at, begin, cp);
@@ -201,11 +201,11 @@ lex_c99_esc(const char *begin, const char *end, struct floc *at, char32_t *pc32)
 		cp--;
 
 	char32_t c32 = 0;
-	if (isodigit(*cp)) {
-		c32 = ctoo(*cp);
+	if (isodigit((unsigned char)*cp)) {
+		c32 = (unsigned char)ctoo((unsigned char)*cp);
 		cp++;
 		while ((!end || cp < end) && isodigit((unsigned char)*cp)) {
-			c32 = (c32 << 3) | ctoo(*cp);
+			c32 = (c32 << 3) | (unsigned char)ctoo(*cp);
 			cp++;
 		}
 	} else {
@@ -223,7 +223,7 @@ lex_c99_esc(const char *begin, const char *end, struct floc *at, char32_t *pc32)
 		case 'x':
 			while ((!end || cp < end)
 					&& isxdigit((unsigned char)*cp)) {
-				c32 = (c32 << 4) | ctox(*cp);
+				c32 = (c32 << 4) | (unsigned char)ctox(*cp);
 				cp++;
 			}
 			break;
@@ -281,7 +281,7 @@ lex_c99_str(const char *begin, const char *end, struct floc *at, char *s,
 	if (at)
 		*at = *floc;
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 size_t
@@ -343,7 +343,7 @@ lex_c99_pp_num(const char *begin, const char *end, struct floc *at)
 \
 		char *endptr; \
 		type result = strtov(buf, &endptr); \
-		chars = endptr - buf; \
+		chars = (size_t)(endptr - buf); \
 \
 		free(buf); \
 \
@@ -385,7 +385,7 @@ lex_c99_pp_num(const char *begin, const char *end, struct floc *at)
 \
 		char *endptr; \
 		type result = strtov(buf, &endptr); \
-		chars = endptr - buf; \
+		chars = (size_t)(endptr - buf); \
 \
 		free(buf); \
 \
@@ -671,9 +671,15 @@ lex_hex(const char *begin, const char *end, struct floc *at, void *ptr,
 		if (bp && bp < endb) {
 			if (i % 2) {
 				*bp <<= 4;
-				*bp++ |= ctox(*cp) & 0xf;
+				// clang-format off
+				*bp++ |= (unsigned char)(
+						ctox((unsigned char)*cp) & 0xf);
+				// clang-format on
 			} else {
-				*bp = ctox(*cp) & 0xf;
+				// clang-format off
+				*bp = (unsigned char)(
+						ctox((unsigned char)*cp) & 0xf);
+				// clang-format on
 				n++;
 			}
 		}
@@ -769,16 +775,16 @@ lex_base64(const char *begin, const char *end, struct floc *at, void *ptr,
 		}
 		if (bp && bp < endb) {
 			switch (i % 4) {
-			case 0: s = b << 2; break;
+			case 0: s = (unsigned char)(b << 2); break;
 			case 1:
 				s |= b >> 4;
 				*bp++ = s;
-				s = b << 4;
+				s = (unsigned char)(b << 4);
 				break;
 			case 2:
 				s |= b >> 2;
 				*bp++ = s;
-				s = b << 6;
+				s = (unsigned char)(b << 6);
 				break;
 			case 3:
 				s |= b;

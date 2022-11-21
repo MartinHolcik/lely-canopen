@@ -4,7 +4,7 @@
  *
  * @see lely/util/endian.h
  *
- * @copyright 2013-2020 Lely Industries N.V.
+ * @copyright 2013-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  * @author M. W. Hessel <mhessel@lely.com>
@@ -59,59 +59,77 @@ bcpybe(uint_least8_t *dst, int dstbit, const uint_least8_t *src, int srcbit,
 		srcbit += 8;
 	}
 
-	uint_least8_t first = 0xff >> dstbit;
-	uint_least8_t last = ~(0xff >> ((dstbit + n) % 8)) & 0xff;
+	uint_least8_t first = (uint_least8_t)(0xffu >> dstbit);
+	uint_least8_t last = ~(0xffu >> (((size_t)dstbit + n) % 8)) & 0xffu;
 
 	int shift = dstbit - srcbit;
 	if (shift) {
 		int right = shift & (8 - 1);
 		int left = -shift & (8 - 1);
 
-		if (dstbit + n <= 8) {
+		if ((size_t)dstbit + n <= 8) {
 			if (last)
 				first &= last;
 			if (shift > 0) {
-				bitcpy(dst, *src >> right, first);
-			} else if (srcbit + n <= 8) {
-				bitcpy(dst, *src << left, first);
-			} else {
-				bitcpy(dst, *src << left | src[1] >> right,
+				bitcpy(dst, (uint_least8_t)(*src >> right),
 						first);
+			} else if ((size_t)srcbit + n <= 8) {
+				bitcpy(dst, (uint_least8_t)(*src << left),
+						first);
+			} else {
+				// clang-format off
+				bitcpy(dst, (uint_least8_t)(
+						*src << left | src[1] >> right),
+						first);
+				// clang-format on
 			}
 		} else {
-			uint_least8_t b = *src++ & 0xff;
+			uint_least8_t b = *src++ & 0xffu;
 			if (shift > 0) {
-				bitcpy(dst, b >> right, first);
+				bitcpy(dst, (uint_least8_t)(b >> right), first);
 			} else {
-				bitcpy(dst, b << left | *src >> right, first);
-				b = *src++ & 0xff;
+				// clang-format off
+				bitcpy(dst, (uint_least8_t)(
+						b << left | *src >> right),
+						first);
+				// clang-format on
+				b = *src++ & 0xffu;
 			}
 			dst++;
-			n -= 8 - dstbit;
+			n -= (size_t)(8 - dstbit);
 
 			n /= 8;
 			while (n--) {
-				*dst++ = (b << left | *src >> right) & 0xff;
-				b = *src++ & 0xff;
+				// clang-format off
+				*dst++ = (uint_least8_t)(
+						b << left | *src >> right)
+						& 0xffu;
+				// clang-format on
+				b = *src++ & 0xffu;
 			}
 
-			if (last)
-				bitcpy(dst, b << left | *src >> right, last);
+			if (last) {
+				// clang-format off
+				bitcpy(dst, (uint_least8_t)(
+						b << left | *src >> right),
+						last);
+				// clang-format on
+			}
 		}
 	} else {
-		if (dstbit + n <= 8) {
+		if ((size_t)dstbit + n <= 8) {
 			if (last)
 				first &= last;
 			bitcpy(dst, *src, first);
 		} else {
 			if (dstbit > 0) {
 				bitcpy(dst++, *src++, first);
-				n -= 8 - dstbit;
+				n -= (size_t)(8 - dstbit);
 			}
 
 			n /= 8;
 			while (n--)
-				*dst++ = *src++ & 0xff;
+				*dst++ = *src++ & 0xffu;
 
 			if (last)
 				bitcpy(dst, *src, last);
@@ -143,59 +161,77 @@ bcpyle(uint_least8_t *dst, int dstbit, const uint_least8_t *src, int srcbit,
 		srcbit += 8;
 	}
 
-	uint_least8_t first = (0xff << dstbit) & 0xff;
-	uint_least8_t last = ~(0xff << ((dstbit + n) % 8)) & 0xff;
+	uint_least8_t first = (0xffu << (size_t)dstbit) & 0xffu;
+	uint_least8_t last = ~(0xffu << (((size_t)dstbit + n) % 8)) & 0xffu;
 
 	int shift = dstbit - srcbit;
 	if (shift) {
 		int right = -shift & (8 - 1);
 		int left = shift & (8 - 1);
 
-		if (dstbit + n <= 8) {
+		if ((size_t)dstbit + n <= 8) {
 			if (last)
 				first &= last;
 			if (shift > 0) {
-				bitcpy(dst, *src << left, first);
-			} else if (srcbit + n <= 8) {
-				bitcpy(dst, *src >> right, first);
-			} else {
-				bitcpy(dst, *src >> right | src[1] << left,
+				bitcpy(dst, (uint_least8_t)(*src << left),
 						first);
+			} else if ((size_t)srcbit + n <= 8) {
+				bitcpy(dst, (uint_least8_t)(*src >> right),
+						first);
+			} else {
+				// clang-format off
+				bitcpy(dst, (uint_least8_t)(
+						*src >> right | src[1] << left),
+						first);
+				// clang-format on
 			}
 		} else {
-			uint_least8_t b = *src++ & 0xff;
+			uint_least8_t b = *src++ & 0xffu;
 			if (shift > 0) {
-				bitcpy(dst, b << left, first);
+				bitcpy(dst, (uint_least8_t)(b << left), first);
 			} else {
-				bitcpy(dst, b >> right | *src << left, first);
-				b = *src++ & 0xff;
+				// clang-format off
+				bitcpy(dst, (uint_least8_t)(
+						b >> right | *src << left),
+						first);
+				// clang-format on
+				b = *src++ & 0xffu;
 			}
 			dst++;
-			n -= 8 - dstbit;
+			n -= (size_t)(8 - dstbit);
 
 			n /= 8;
 			while (n--) {
-				*dst++ = (b >> right | *src << left) & 0xff;
-				b = *src++ & 0xff;
+				// clang-format off
+				*dst++ = (uint_least8_t)(
+						(b >> right | *src << left))
+						& 0xffu;
+				// clang-format on
+				b = *src++ & 0xffu;
 			}
 
-			if (last)
-				bitcpy(dst, b >> right | *src << left, last);
+			if (last) {
+				// clang-format off
+				bitcpy(dst, (uint_least8_t)(
+						b >> right | *src << left),
+						last);
+				// clang-format on
+			}
 		}
 	} else {
-		if (dstbit + n <= 8) {
+		if ((size_t)dstbit + n <= 8) {
 			if (last)
 				first &= last;
 			bitcpy(dst, *src, first);
 		} else {
 			if (dstbit > 0) {
 				bitcpy(dst++, *src++, first);
-				n -= 8 - dstbit;
+				n -= (size_t)(8 - dstbit);
 			}
 
 			n /= 8;
 			while (n--)
-				*dst++ = *src++ & 0xff;
+				*dst++ = *src++ & 0xffu;
 
 			if (last)
 				bitcpy(dst, *src, last);
@@ -206,5 +242,5 @@ bcpyle(uint_least8_t *dst, int dstbit, const uint_least8_t *src, int srcbit,
 static inline void
 bitcpy(uint_least8_t *dst, uint_least8_t src, uint_least8_t mask)
 {
-	*dst = (((src ^ *dst) & mask) ^ *dst) & 0xff;
+	*dst = (((src ^ *dst) & mask) ^ *dst) & 0xffu;
 }

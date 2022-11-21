@@ -4,7 +4,7 @@
  *
  * @see lely/co/gw_txt.h
  *
- * @copyright 2017-2019 Lely Industries N.V.
+ * @copyright 2017-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -438,7 +438,7 @@ co_gw_txt_recv(co_gw_txt_t *gw, const struct co_gw_srv *srv)
 			return -1;
 		}
 		const struct co_gw_con *con = (const struct co_gw_con *)srv;
-		co_unsigned32_t seq = (uintptr_t)con->data;
+		co_unsigned32_t seq = (co_unsigned32_t)(uintptr_t)con->data;
 		return co_gw_txt_recv_con(gw, seq, con);
 	case CO_GW_SRV_RPDO:
 		if (srv->size < CO_GW_IND_RPDO_SIZE) {
@@ -1221,7 +1221,7 @@ co_gw_txt_send_sdo_up(co_gw_txt_t *gw, int srv, void *data, co_unsigned16_t net,
 		.type = type };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1269,7 +1269,7 @@ co_gw_txt_send_sdo_dn(co_gw_txt_t *gw, int srv, void *data, co_unsigned16_t net,
 		.node = node,
 		.idx = idx,
 		.subidx = subidx,
-		.len = n };
+		.len = (co_unsigned32_t)n };
 
 	uint_least8_t *bp = req->val;
 	if (co_val_write(type, &val, bp, bp + n) != n) {
@@ -1282,7 +1282,7 @@ co_gw_txt_send_sdo_dn(co_gw_txt_t *gw, int srv, void *data, co_unsigned16_t net,
 	free(req);
 	co_val_fini(type, &val);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 
 error_write_val:
 	free(req);
@@ -1315,10 +1315,10 @@ co_gw_txt_send_set_sdo_timeout(co_gw_txt_t *gw, int srv, void *data,
 		.srv = srv,
 		.data = data,
 		.net = net,
-		.timeout = timeout };
+		.timeout = (int)timeout };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1352,7 +1352,7 @@ co_gw_txt_send_set_rpdo(co_gw_txt_t *gw, int srv, void *data,
 		req.map[i] = map.map[i];
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1397,7 +1397,7 @@ co_gw_txt_send_set_tpdo(co_gw_txt_t *gw, int srv, void *data,
 		req.map[i] = map.map[i];
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1430,7 +1430,7 @@ co_gw_txt_send_pdo_read(co_gw_txt_t *gw, int srv, void *data,
 		.num = num };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1490,7 +1490,7 @@ co_gw_txt_send_pdo_write(co_gw_txt_t *gw, int srv, void *data,
 	req.size += req.n * sizeof(*req.val);
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1528,7 +1528,7 @@ co_gw_txt_send_nmt_set_ng(co_gw_txt_t *gw, int srv, void *data,
 		.ltf = ltf };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1557,7 +1557,7 @@ co_gw_txt_send_nmt_set_hb(co_gw_txt_t *gw, int srv, void *data,
 		.ms = ms };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1590,7 +1590,7 @@ co_gw_txt_send_init(co_gw_txt_t *gw, int srv, void *data, co_unsigned16_t net,
 		.bitidx = bitidx };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1617,7 +1617,7 @@ co_gw_txt_send_set_hb(co_gw_txt_t *gw, int srv, void *data, co_unsigned16_t net,
 		.ms = ms };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1651,7 +1651,7 @@ co_gw_txt_send_set_id(co_gw_txt_t *gw, int srv, void *data, co_unsigned16_t net,
 		.node = node };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1674,10 +1674,10 @@ co_gw_txt_send_set_cmd_timeout(co_gw_txt_t *gw, int srv, void *data,
 	struct co_gw_req_set_cmd_timeout req = { .size = sizeof(req),
 		.srv = srv,
 		.data = data,
-		.timeout = timeout };
+		.timeout = (int)timeout };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1710,10 +1710,10 @@ co_gw_txt_send_set_bootup_ind(co_gw_txt_t *gw, int srv, void *data,
 		.srv = srv,
 		.data = data,
 		.net = net,
-		.cs = cs };
+		.cs = !!cs };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1745,7 +1745,7 @@ co_gw_txt_send_set_net(co_gw_txt_t *gw, int srv, void *data, const char *begin,
 	};
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1780,7 +1780,7 @@ co_gw_txt_send_set_node(co_gw_txt_t *gw, int srv, void *data,
 		.node = node };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1805,7 +1805,7 @@ co_gw_txt_send_set_cmd_size(co_gw_txt_t *gw, int srv, void *data,
 	};
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1833,7 +1833,7 @@ co_gw_txt_send_lss_switch(co_gw_txt_t *gw, int srv, void *data,
 		.mode = mode };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1859,7 +1859,7 @@ co_gw_txt_send_lss_switch_sel(co_gw_txt_t *gw, int srv, void *data,
 		.id = id };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1894,7 +1894,7 @@ co_gw_txt_send_lss_set_id(co_gw_txt_t *gw, int srv, void *data,
 		.node = node };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1931,7 +1931,7 @@ co_gw_txt_send_lss_set_rate(co_gw_txt_t *gw, int srv, void *data,
 		.bitidx = bitidx };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1959,7 +1959,7 @@ co_gw_txt_send_lss_switch_rate(co_gw_txt_t *gw, int srv, void *data,
 		.delay = delay };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -1992,7 +1992,7 @@ co_gw_txt_send_lss_get_lssid(co_gw_txt_t *gw, int srv, void *data,
 		.cs = cs };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -2020,7 +2020,7 @@ co_gw_txt_send_lss_id_slave(co_gw_txt_t *gw, int srv, void *data,
 		.hi = hi };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -2048,7 +2048,7 @@ co_gw_txt_send__lss_slowscan(co_gw_txt_t *gw, int srv, void *data,
 		.id_2 = hi };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -2128,7 +2128,7 @@ co_gw_txt_send__lss_fastscan(co_gw_txt_t *gw, int srv, void *data,
 		.id_2 = mask };
 	co_gw_txt_send_req(gw, (struct co_gw_req *)&req);
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static void
@@ -2213,7 +2213,7 @@ co_gw_txt_lex_prefix(const char *begin, const char *end, struct floc *at,
 			}
 			// If only a single ID was provided, interpret it as the
 			// node-ID.
-			node = net;
+			node = net & 0xffu;
 			net = 0;
 		}
 	}
@@ -2225,7 +2225,7 @@ co_gw_txt_lex_prefix(const char *begin, const char *end, struct floc *at,
 	if (pnode)
 		*pnode = node;
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -2450,7 +2450,7 @@ co_gw_txt_lex_srv(
 	if (psrv)
 		*psrv = srv;
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -2500,7 +2500,7 @@ co_gw_txt_lex_sdo(const char *begin, const char *end, struct floc *at,
 		return 0;
 	cp += chars;
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -2609,7 +2609,8 @@ co_gw_txt_lex_pdo(const char *begin, const char *end, struct floc *at, int ext,
 			return 0;
 		}
 
-		co_unsigned8_t len = co_type_sizeof(type) * CHAR_BIT;
+		co_unsigned8_t len =
+				(co_unsigned8_t)co_type_sizeof(type) * CHAR_BIT;
 		// If no multiplexer was specified, use the type as the object
 		// index (dummy mapping).
 		map.map[i] = ((co_unsigned32_t)(idx ? idx : type) << 16)
@@ -2628,7 +2629,7 @@ co_gw_txt_lex_pdo(const char *begin, const char *end, struct floc *at, int ext,
 			pmap->map[i] = map.map[i];
 	}
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -2702,7 +2703,7 @@ co_gw_txt_lex_type(const char *begin, const char *end, struct floc *at,
 	if (ptype)
 		*ptype = type;
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -2743,7 +2744,7 @@ co_gw_txt_lex_val(const char *begin, const char *end, struct floc *at,
 					"expected '\"' after string");
 		cp += chars;
 
-		return cp - begin;
+		return (size_t)(cp - begin);
 	}
 	case CO_DEFTYPE_OCTET_STRING:
 		return co_val_lex(CO_DEFTYPE_DOMAIN, val, begin, end, at);
@@ -2776,7 +2777,7 @@ co_gw_txt_lex_vs(const char *begin, const char *end, struct floc *at, char *s,
 		if (*cp == '\"') {
 			if ((end && cp + 1 >= end) || cp[1] != '\"')
 				break;
-			c32 = *cp;
+			c32 = (unsigned char)*cp;
 			cp += floc_lex(floc, cp, cp + 2);
 		} else if (*cp == '\\') {
 			cp += lex_c99_esc(cp, end, floc, &c32);
@@ -2793,7 +2794,7 @@ co_gw_txt_lex_vs(const char *begin, const char *end, struct floc *at, char *s,
 	if (at)
 		*at = *floc;
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -2816,7 +2817,7 @@ co_gw_txt_lex_trans(const char *begin, const char *end, struct floc *at,
 	if (!strncasecmp("event", cp, 5)) {
 		cp += 5;
 		if (at)
-			at->column -= chars - 5;
+			at->column -= (int)chars - 5;
 		trans = 0xff;
 	} else if (!strncasecmp("rtr", cp, chars)) {
 		cp += chars;
@@ -2824,7 +2825,7 @@ co_gw_txt_lex_trans(const char *begin, const char *end, struct floc *at,
 	} else if (!strncasecmp("sync", cp, 4)) {
 		cp += 4;
 		if (at)
-			at->column -= chars - 4;
+			at->column -= (int)chars - 4;
 		if (!(chars = lex_c99_u8(cp, end, at, &trans))) {
 			diag_if(DIAG_ERROR, 0, at, "expected SYNC period");
 			return 0;
@@ -2844,7 +2845,7 @@ co_gw_txt_lex_trans(const char *begin, const char *end, struct floc *at,
 	if (ptrans)
 		*ptrans = trans;
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -2888,7 +2889,7 @@ co_gw_txt_lex_id(const char *begin, const char *end, struct floc *at,
 	if (pid)
 		*pid = id;
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 static size_t
@@ -2955,7 +2956,7 @@ co_gw_txt_lex_id_sel(const char *begin, const char *end, struct floc *at,
 	if (phi)
 		*phi = hi;
 
-	return cp - begin;
+	return (size_t)(cp - begin);
 }
 
 #endif // !LELY_NO_CO_GW_TXT

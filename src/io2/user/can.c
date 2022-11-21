@@ -4,7 +4,7 @@
  *
  * @see lely/io2/user/can.h
  *
- * @copyright 2015-2021 Lely Industries N.V.
+ * @copyright 2015-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -559,7 +559,7 @@ io_user_can_chan_read(io_can_chan_t *chan, struct can_msg *msg,
 #else
 		if (!timespec_get(&ts, TIME_UTC))
 			return -1;
-		timespec_add_msec(&ts, timeout);
+		timespec_add_msec(&ts, (unsigned int)timeout);
 #endif
 	}
 #endif
@@ -831,7 +831,7 @@ io_user_can_chan_read_task_func(struct ev_task *task)
 		mtx_unlock(&user->c_mtx);
 #endif
 	}
-	user->read_posted = post_read;
+	user->read_posted = !!post_read;
 #if !LELY_NO_THREADS
 	mtx_unlock(&user->mtx);
 #endif
@@ -954,7 +954,7 @@ io_user_can_chan_on_frame(struct io_user_can_chan *user,
 #else
 		if (!timespec_get(&ts, TIME_UTC))
 			return -1;
-		timespec_add_msec(&ts, timeout);
+		timespec_add_msec(&ts, (unsigned int)timeout);
 #endif
 	}
 #endif

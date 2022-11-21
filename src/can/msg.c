@@ -4,7 +4,7 @@
  *
  * @see lely/can/msg.h
  *
- * @copyright 2015-2020 Lely Industries N.V.
+ * @copyright 2015-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -93,23 +93,24 @@ can_msg_bits(const struct can_msg *msg, enum can_msg_bits_mode mode)
 		// data[12-14] |77777777 CCCCCCCC CCCCCCC. ........|
 		uint_least32_t id = msg->id & CAN_MASK_EID;
 		off = 1;
-		*bp++ = (id >> 23) & 0x3f; // SOF = 0, base (Indentifier)
+		*bp++ = (id >> 23) & 0x3fu; // SOF = 0, base (Indentifier)
 		bits += 8 - off;
 
-		*bp++ = ((id >> 15) & 0xf8) // base (Indentifier)
-				| (0x03 << 1) // SRR, IDE
-				| ((id >> 17) & 0x01); // Identifier (extension)
+		*bp++ = (uint_least8_t)(((id >> 15) & 0xf8u) // base (Indentifier)
+				| (0x03u << 1) // SRR, IDE
+				| ((id >> 17) & 0x01u)); // Identifier (extension)
 		bits += 8;
 
-		*bp++ = (id >> 9) & 0xff; // Identifier (extension)
+		*bp++ = (id >> 9) & 0xffu; // Identifier (extension)
 		bits += 8;
 
-		*bp++ = (id >> 1) & 0xff; // Identifier (extension)
+		*bp++ = (id >> 1) & 0xffu; // Identifier (extension)
 		bits += 8;
 
-		*bp++ = ((id << 7) & 0x80) // Identifier (extension)
-				| (!!(msg->flags & CAN_FLAG_RTR) << 6) // RTR
-				| (msg->len & 0x0f); // R1 = 0, R0 = 0, DLC
+		*bp++ = (uint_least8_t)(((id << 7) & 0x80u) // Identifier (extension)
+				| (uint_least8_t)(!!(msg->flags & CAN_FLAG_RTR)
+						<< 6) // RTR
+				| (msg->len & 0x0fu)); // R1 = 0, R0 = 0, DLC
 		bits += 8;
 	} else {
 		// s = SOF, B = (base) Identifier, R = RTR, I = IDE, 0 = R0,
@@ -120,15 +121,16 @@ can_msg_bits(const struct can_msg *msg, enum can_msg_bits_mode mode)
 		// data[12-14] |CCCCCCC. ........ ........ ........|
 		uint_least32_t id = msg->id & CAN_MASK_BID;
 		off = 5;
-		*bp++ = (id >> 9) & 0x03; // SOF = 0, base (Indentifier)
+		*bp++ = (id >> 9) & 0x03u; // SOF = 0, base (Indentifier)
 		bits += 8 - off;
 
-		*bp++ = (id >> 1) & 0xff; // base (Indentifier)
+		*bp++ = (id >> 1) & 0xffu; // base (Indentifier)
 		bits += 8;
 
-		*bp++ = ((id << 7) & 0x80) // base (Indentifier)
-				| (!!(msg->flags & CAN_FLAG_RTR) << 6) // RTR
-				| (msg->len & 0x0f); // IDE = 0, R0 = 0, DLC
+		*bp++ = (uint_least8_t)(((id << 7) & 0x80u) // base (Indentifier)
+				| (uint_least8_t)(!!(msg->flags & CAN_FLAG_RTR)
+						<< 6) // RTR
+				| (msg->len & 0x0fu)); // IDE = 0, R0 = 0, DLC
 		bits += 8;
 	}
 
@@ -137,10 +139,10 @@ can_msg_bits(const struct can_msg *msg, enum can_msg_bits_mode mode)
 			*bp++ = msg->data[i] & 0xff;
 	}
 
-	uint_least16_t crc = can_crc(0, data, off, bits);
+	uint_least16_t crc = can_crc(0, data, off, (size_t)bits);
 	assert(!((off + bits) % 8));
-	*bp++ = (crc >> 7) & 0xff;
-	*bp++ = (crc << 1) & 0xff;
+	*bp++ = (uint_least8_t)(crc >> 7) & 0xffu;
+	*bp++ = (uint_least8_t)(crc << 1) & 0xffu;
 	bits += 15;
 
 	// Count the stuffed bits.
@@ -152,8 +154,10 @@ can_msg_bits(const struct can_msg *msg, enum can_msg_bits_mode mode)
 		same = same ? 0 : mask;
 		// Extract 5 bits at i at look for a bit flip.
 		// clang-format off
-		uint_least8_t five = (((uint_least16_t)data[i / 8] << 8)
-				| data[i / 8 + 1]) >> (16 - 5 - i % 8);
+		uint_least8_t five = (uint_least8_t)(
+				(((uint_least16_t)data[i / 8] << 8)
+						| data[i / 8 + 1])
+				>> (16 - 5 - i % 8));
 		// clang-format on
 		int n = clz8((five & mask) ^ same) - 3;
 		i += n;
@@ -210,9 +214,9 @@ snprintf_can_msg(char *s, size_t n, const struct can_msg *msg)
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 #if !LELY_NO_CANFD
 	if (msg->flags & CAN_FLAG_FDF)
@@ -223,9 +227,9 @@ snprintf_can_msg(char *s, size_t n, const struct can_msg *msg)
 	if (r < 0)
 		return r;
 	t += r;
-	r = MIN((size_t)r, n);
+	r = (int)MIN((size_t)r, n);
 	s += r;
-	n -= r;
+	n -= (size_t)r;
 
 	if (msg->flags & CAN_FLAG_RTR) {
 		r = snprintf(s, n, " remote request");
@@ -238,9 +242,9 @@ snprintf_can_msg(char *s, size_t n, const struct can_msg *msg)
 			if (r < 0)
 				return r;
 			t += r;
-			r = MIN((size_t)r, n);
+			r = (int)MIN((size_t)r, n);
 			s += r;
-			n -= r;
+			n -= (size_t)r;
 		}
 	}
 
@@ -255,11 +259,11 @@ asprintf_can_msg(char **ps, const struct can_msg *msg)
 	if (n < 0)
 		return n;
 
-	char *s = malloc(n + 1);
+	char *s = malloc((size_t)n + 1);
 	if (!s)
 		return -1;
 
-	n = snprintf_can_msg(s, n + 1, msg);
+	n = snprintf_can_msg(s, (size_t)n + 1, msg);
 	if (n < 0) {
 		int errsv = errno;
 		free(s);
@@ -288,8 +292,8 @@ can_crc(uint_least16_t crc, const void *ptr, int off, size_t bits)
 	}
 
 	if (off && bits) {
-		int n = MIN((size_t)(8 - off), bits);
-		crc = can_crc_bits(crc, *bp++, off, n);
+		size_t n = MIN((size_t)(8 - off), bits);
+		crc = can_crc_bits(crc, *bp++, off, (int)n);
 		bits -= n;
 	}
 
@@ -299,7 +303,7 @@ can_crc(uint_least16_t crc, const void *ptr, int off, size_t bits)
 	bits -= n * 8;
 
 	if (bits)
-		crc = can_crc_bits(crc, *bp, 0, bits);
+		crc = can_crc_bits(crc, *bp, 0, (int)bits);
 
 	return crc;
 }
@@ -313,11 +317,11 @@ can_crc_bits(uint_least16_t crc, uint_least8_t byte, int off, int bits)
 
 	for (byte <<= off; bits--; byte <<= 1) {
 		if ((byte ^ (crc >> 7)) & 0x80)
-			crc = (crc << 1) ^ 0x4599;
+			crc = (uint_least16_t)(crc << 1) ^ 0x4599u;
 		else
 			crc <<= 1;
 	}
-	return crc & 0x7fff;
+	return crc & 0x7fffu;
 }
 
 static uint_least16_t

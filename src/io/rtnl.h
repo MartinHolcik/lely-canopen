@@ -1,7 +1,7 @@
 /**@file
  * This is the internal header file of the rtnetlink declarations.
  *
- * @copyright 2016-2018 Lely Industries N.V.
+ * @copyright 2016-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -168,7 +168,14 @@ static inline struct rtattr *io_rta_find(
 static inline struct rtattr *
 io_rta_find(struct rtattr *rta, unsigned short len, unsigned short type)
 {
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#endif
 	for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 		if (rta->rta_type == type)
 			return rta;
 	}

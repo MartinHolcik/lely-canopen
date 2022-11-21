@@ -4,7 +4,7 @@
  *
  * @see lely/co/sdo.h
  *
- * @copyright 2020 Lely Industries N.V.
+ * @copyright 2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -398,7 +398,7 @@ co_sdo_req_dn_buf(struct co_sdo_req *req, const void **pptr, size_t *pnbyte)
 		} else {
 			// Adjust the offset if necessary. Only backtracking is
 			// allowed.
-			offset += req->offset;
+			offset += (ptrdiff_t)req->offset;
 			if (offset) {
 				if (offset > 0) {
 					set_errnum(ERRNUM_INVAL);

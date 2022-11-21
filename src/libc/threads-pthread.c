@@ -3,7 +3,7 @@
  *
  * @see lely/libc/threads.h
  *
- * @copyright 2013-2020 Lely Industries N.V.
+ * @copyright 2013-2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -250,7 +250,7 @@ thrd_join(thrd_t thr, int *res)
 		return thrd_error;
 	}
 	if (res)
-		*res = (intptr_t)value_ptr;
+		*res = (int)(intptr_t)value_ptr;
 	return thrd_success;
 }
 

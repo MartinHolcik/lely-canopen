@@ -4,7 +4,7 @@
  *
  * @see lely/co/dev.h
  *
- * @copyright 2021 Lely Industries N.V.
+ * @copyright 2022 Lely Industries N.V.
  *
  * @author J. S. Seldenthuis <jseldenthuis@lely.com>
  *
@@ -512,7 +512,7 @@ co_dev_set_baud(co_dev_t *dev, unsigned int baud)
 {
 	assert(dev);
 
-	dev->baud = baud;
+	dev->baud = baud & 0x03ffu;
 }
 
 co_unsigned16_t
@@ -677,7 +677,8 @@ co_dev_write_sub(const co_dev_t *dev, co_unsigned16_t idx,
 	co_unsigned16_t type = co_sub_get_type(sub);
 	const void *val = co_sub_get_val(sub);
 
-	co_unsigned32_t size = co_val_write(type, val, NULL, NULL);
+	co_unsigned32_t size =
+			(co_unsigned32_t)co_val_write(type, val, NULL, NULL);
 	if (!size && co_val_sizeof(type, val))
 		return 0;
 
@@ -1026,7 +1027,7 @@ co_val_set_id(co_unsigned16_t type, void *val, co_unsigned8_t new_id,
 	switch (type) {
 #define LELY_CO_DEFINE_TYPE(a, b, c, d) \
 	case CO_DEFTYPE_##a: \
-		u->c += new_id - old_id; \
+		u->c = (d)(u->c + new_id - old_id); \
 		break;
 #include <lely/co/def/basic.def>
 #undef LELY_CO_DEFINE_TYPE
