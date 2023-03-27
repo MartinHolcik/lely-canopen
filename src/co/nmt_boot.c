@@ -1890,7 +1890,10 @@ co_nmt_boot_start_prog_on_dn_con(co_nmt_boot_t *boot, co_unsigned32_t ac)
 {
 	assert(boot);
 
-	if (ac) {
+	// The download SDO request may be unconfirmed on some devices since it
+	// starts the program on the slave (and may cause a restart of the
+	// program). We therefore ignore timeouts.
+	if (ac && ac != CO_SDO_AC_TIMEOUT) {
 		diag(DIAG_ERROR, 0,
 				"SDO abort code %08" PRIX32
 				" received on download request of sub-object 1F51:01 (Program control) to node %02X: %s",
