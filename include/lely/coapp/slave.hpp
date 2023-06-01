@@ -801,6 +801,9 @@ class BasicSlave : public Node {
       ::std::error_code& ec);
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 
+ protected:
+  using Device::OnWrite;
+
  private:
 #endif
   /**
