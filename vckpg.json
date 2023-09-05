@@ -1,0 +1,6 @@
+{
+	"name": "lely-canopen",
+	"version": "2.3.1",
+	"description": "The Lely core libraries are a collection of C and C++ libraries and tools, providing hih-performance I/O and sensor/actuator control for robotics and IoT applications.",
+	"homepage": "https://github.com/MartinHolcik/lely-canopen"
+}
